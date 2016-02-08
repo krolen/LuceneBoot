@@ -42,7 +42,7 @@ public class LuceneService {
   public void init() throws IOException {
     analyzer = new StandardAnalyzer();
     // TODO: 07.02.2016 offheap
-    MMapDirectory index = new MMapDirectory(Paths.get(appConfig.getIndexFilePath()));
+    MMapDirectory index = new MMapDirectory(Paths.get(appConfig.getLucene().getIndexFilePath()));
 
     IndexWriterConfig config = new IndexWriterConfig(analyzer);
     indexWriter = new IndexWriter(index, config);
@@ -57,7 +57,7 @@ public class LuceneService {
     // This thread handles the actual reader reopening.
     //=========================================================
     ControlledRealTimeReopenThread<IndexSearcher> nrtReopenThread = new ControlledRealTimeReopenThread<>(trackingIndexWriter,
-      searcherManager, appConfig.getRefreshIndexMin(), appConfig.getRefreshIndexMin() + 10);
+      searcherManager, appConfig.getLucene().getRefreshIndexMin() + 10, appConfig.getLucene().getRefreshIndexMin());
     nrtReopenThread.setName("NRT Reopen Thread");
     nrtReopenThread.setPriority(Math.min(Thread.currentThread().getPriority() + 2, Thread.MAX_PRIORITY));
     nrtReopenThread.setDaemon(true);
@@ -82,7 +82,7 @@ public class LuceneService {
     IndexSearcher searcher = null;
     try {
       searcher = searcherManager.acquire();
-      TopDocs docs = searcher.search(query, Optional.ofNullable(hitsCountToReturn).orElse(appConfig.getHitsToReturn()));
+      TopDocs docs = searcher.search(query, Optional.ofNullable(hitsCountToReturn).orElse(appConfig.getLucene().getHitsToReturn()));
       System.out.println("Found " + docs.totalHits + " docs for counter=1");
       return docs;
     } finally {

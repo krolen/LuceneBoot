@@ -1,5 +1,5 @@
-app
-  lucene
-    refreshIndexMin : 10
-    indexFilePath : "/data/lucene"
-    hitsToReturn : 100
+app:
+  lucene:
+    refreshIndexMin: 10
+    indexFilePath: "/data/lucene"
+    hitsToReturn: 100
