@@ -78,12 +78,13 @@ public class LuceneService {
     }
   }
 
-  public void search(Query query, Integer hitsCountToReturn) throws IOException {
+  public TopDocs search(Query query, Integer hitsCountToReturn) throws IOException {
     IndexSearcher searcher = null;
     try {
       searcher = searcherManager.acquire();
       TopDocs docs = searcher.search(query, Optional.ofNullable(hitsCountToReturn).orElse(appConfig.getHitsToReturn()));
       System.out.println("Found " + docs.totalHits + " docs for counter=1");
+      return docs;
     } finally {
       Optional.ofNullable(searcher).ifPresent((reference) -> {
         try {
