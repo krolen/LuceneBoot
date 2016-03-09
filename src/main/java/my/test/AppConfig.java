@@ -20,7 +20,7 @@ public class AppConfig {
   @Getter
   @Setter
   public static class Lucene {
-    private int refreshIndexMin;
+    private int refreshIndexMinInSeconds;
     private int hitsToReturn;
     private String indexFilePath;
   }

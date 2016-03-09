@@ -22,6 +22,7 @@ import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -57,23 +58,23 @@ public class LuceneService {
     // This thread handles the actual reader reopening.
     //=========================================================
     ControlledRealTimeReopenThread<IndexSearcher> nrtReopenThread = new ControlledRealTimeReopenThread<>(trackingIndexWriter,
-      searcherManager, appConfig.getLucene().getRefreshIndexMin() + 10, appConfig.getLucene().getRefreshIndexMin());
+      searcherManager, appConfig.getLucene().getRefreshIndexMinInSeconds() + 10, appConfig.getLucene().getRefreshIndexMinInSeconds());
     nrtReopenThread.setName("NRT Reopen Thread");
     nrtReopenThread.setPriority(Math.min(Thread.currentThread().getPriority() + 2, Thread.MAX_PRIORITY));
     nrtReopenThread.setDaemon(true);
     nrtReopenThread.start();
   }
 
-  public void index(Long id, Long time, String content) throws IOException {
+  public void index(Long id, String content) throws IOException {
     Document doc = new Document();
     doc.add(new LongField("id", id, Field.Store.YES));
-    doc.add(new LongField("time", time, Field.Store.YES));
+//    doc.add(new LongField("time", time, Field.Store.YES));
     doc.add(new StringField("content", content, Field.Store.NO));
     indexWriter.addDocument(doc);
-    if(indexed.incrementAndGet() % 1000 == 0) {
+    if(indexed.incrementAndGet() % 10000 == 0) {
       searcherManager.maybeRefresh();
     }
-    if(indexed.incrementAndGet() % 10000 == 0) {
+    if(indexed.incrementAndGet() % 100000 == 0) {
       indexWriter.commit();
     }
   }
@@ -85,6 +86,27 @@ public class LuceneService {
       TopDocs docs = searcher.search(query, Optional.ofNullable(hitsCountToReturn).orElse(appConfig.getLucene().getHitsToReturn()));
       System.out.println("Found " + docs.totalHits + " docs for counter=1");
       return docs;
+    } finally {
+      Optional.ofNullable(searcher).ifPresent((reference) -> {
+        try {
+          searcherManager.release(reference);
+        } catch (IOException ignored) {
+        }
+      });
+    }
+  }
+
+  public Set<Long> searchBig(Query query, Integer hitsCountToReturn, String path) throws IOException {
+    IndexSearcher searcher = null;
+    try {
+      searcher = searcherManager.acquire();
+      TopDocs docs = searcher.search(query, Optional.ofNullable(hitsCountToReturn).orElse(appConfig.getLucene().getHitsToReturn()));
+      long totalHits = docs.totalHits;
+      ScoreDoc[] scoreDocs = docs.scoreDocs;
+      for (ScoreDoc scoreDoc : scoreDocs) {
+//        scoreDoc.
+      }
+      return null;
     } finally {
       Optional.ofNullable(searcher).ifPresent((reference) -> {
         try {
