@@ -1,5 +1,6 @@
 package my.test;
 
+import java.time.Duration;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -15,6 +16,11 @@ import org.springframework.stereotype.Component;
 @Setter
 public class AppConfig {
 
+  private final int appsNumber = 3;
+  private int appNumber;
+  private long duration = Duration.ofMinutes(90).toMillis();
+  private long appsInterval = Duration.ofMinutes(30).toMillis();
+
   private Lucene lucene;
 
   @Getter
@@ -24,4 +30,6 @@ public class AppConfig {
     private int hitsToReturn;
     private String indexFilePath;
   }
+
+
 }

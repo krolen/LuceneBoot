@@ -21,9 +21,9 @@ public class LuceneServiceTest {
 
   @Before
   public void setUp() throws Exception {
-    luceneService.index(1L, "test number 1");
-    luceneService.index(2L, "test number 2");
-    luceneService.index(3L, "test number 3");
+    luceneService.index(1L, 100L, "test number 1");
+    luceneService.index(2L, 100L, "test number 2");
+    luceneService.index(3L, 100L, "test number 3");
   }
 
   @After
@@ -43,6 +43,5 @@ public class LuceneServiceTest {
   public void testSearch() throws Exception {
     Query query = luceneService.parse("content: 'number 1'");
     TopDocs docs = luceneService.search(query, 1);
-    assertThat
   }
 }
