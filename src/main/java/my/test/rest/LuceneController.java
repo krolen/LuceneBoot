@@ -20,7 +20,6 @@ import java.io.IOException;
 @RestController
 public class LuceneController {
 
-
   @Autowired
   private LuceneService luceneService;
 

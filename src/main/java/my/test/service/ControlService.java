@@ -26,7 +26,7 @@ public class ControlService implements LogAware {
   @PostConstruct
   public void init() {
     long appsInterval = appConfig.getAppsInterval();
-    int appNumber = appConfig.getAppNumber();
+    int thisAppNumber = appConfig.getThisAppNumber();
     int appsNumber = appConfig.getAppsNumber();
 
     ScheduledExecutorService service = Executors.newScheduledThreadPool(1, new DefaultManagedAwareThreadFactory() {
@@ -38,15 +38,18 @@ public class ControlService implements LogAware {
       }
     });
     service.schedule((Runnable) () -> {
-      Instant now = Instant.now();
-      LocalDateTime dateTime = LocalDateTime.ofInstant(now, ZoneId.systemDefault());
-      LocalDateTime dayStart = dateTime.with(LocalTime.MIN);
-      long sinceDayStart = Duration.between(dayStart, dateTime).toMillis();
-      int intervalsNumber = (int) (sinceDayStart / appsInterval);
-      if((intervalsNumber % appsNumber) != appNumber) {
-        log().info("Resetting lucene index for application {}", appNumber);
-        luceneService.reset();
-      }
-    }, appsInterval/appsNumber, TimeUnit.MILLISECONDS);
+      process(Instant.now(), appsInterval, thisAppNumber, appsNumber);
+    }, appsInterval / appsNumber / 2, TimeUnit.MINUTES);
+  }
+
+  void process(Instant now, long appsInterval, int thisAppNumber, int appsNumber) {
+    LocalDateTime dateTime = LocalDateTime.ofInstant(now, ZoneId.systemDefault());
+    LocalDateTime dayStart = dateTime.with(LocalTime.MIN);
+    long sinceDayStart = Duration.between(dayStart, dateTime).toMillis();
+    int intervalsNumber = (int) (sinceDayStart / appsInterval);
+    if ((intervalsNumber % appsNumber) != thisAppNumber) {
+      log().info("Resetting lucene index for application {}", thisAppNumber);
+      luceneService.reset();
+    }
   }
 }

@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class AppConfig {
 
   private final int appsNumber = 3;
-  private int appNumber;
+  private int thisAppNumber;
   private long duration = Duration.ofMinutes(90).toMillis();
   private long appsInterval = Duration.ofMinutes(30).toMillis();
 

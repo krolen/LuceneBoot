@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -126,7 +125,7 @@ public class LuceneService implements LogAware {
   }
 
   private Path getPath() {
-    return Paths.get(appConfig.getLucene().getIndexFilePath()).resolve(String.valueOf(appConfig.getAppNumber()));
+    return Paths.get(appConfig.getLucene().getIndexFilePath()).resolve(String.valueOf(appConfig.getThisAppNumber()));
   }
 
   @SneakyThrows
