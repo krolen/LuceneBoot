@@ -22,7 +22,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
         <lucene.version>5.4.1</lucene.version>
-        <chronicle.engine.version>1.11.3</chronicle.engine.version>
+        <chronicle.engine.version>1.11.4</chronicle.engine.version>
     </properties>
 
     <dependencies>
@@ -60,6 +60,10 @@
             <!--<version>2.9.2</version>-->
         <!--</dependency>-->
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-integration</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

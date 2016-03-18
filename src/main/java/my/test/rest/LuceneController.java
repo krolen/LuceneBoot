@@ -24,7 +24,7 @@ public class LuceneController {
   private LuceneService luceneService;
 
   @RequestMapping(value = "/search", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-  public TopDocs search(@RequestParam(value = "q") String query, @RequestParam(value = "max", required = false) Integer count ) throws QueryNodeException, IOException {
+  public TopDocs search(@RequestParam(value = "q") String query, @RequestParam(value = "max", required = false) Integer count) throws QueryNodeException, IOException {
     Query q = luceneService.parse(query);
     return luceneService.search(q, count);
   }

@@ -4,4 +4,4 @@ app:
     indexFilePath: "/data/lucene"
     hitsToReturn: 100
 
-  thisAppNumber: 0
+  thisAppNumber: ${thisAppNumber}
