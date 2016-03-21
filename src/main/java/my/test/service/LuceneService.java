@@ -2,7 +2,8 @@ package my.test.service;
 
 import lombok.SneakyThrows;
 import my.test.AppConfig;
-import my.test.LogAware;
+import my.test.utils.LogAware;
+import my.test.utils.Utils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -23,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -41,9 +43,20 @@ public class LuceneService implements LogAware {
   private IndexWriter indexWriter;
   private AtomicLong indexed = new AtomicLong();
   private StandardAnalyzer analyzer;
+  private ControlledRealTimeReopenThread<IndexSearcher> nrtReopenThread;
+  private long from;
+  private long to;
 
   @PostConstruct
   public void init() throws IOException {
+    int thisAppNumber = appConfig.getThisAppNumber();
+    long appsInterval = appConfig.getAppsInterval();
+    int appsNumber = appConfig.getAppsNumber();
+
+    Instant now = Instant.now();
+    from = calculateCurrentIntervalStart(now, appsNumber, thisAppNumber, appsInterval);
+    to = from + appConfig.getDuration();
+
     analyzer = new StandardAnalyzer();
     // TODO: 07.02.2016 offheap
     MMapDirectory index = new MMapDirectory(getPath());
@@ -60,7 +73,7 @@ public class LuceneService implements LogAware {
     //=========================================================
     // This thread handles the actual reader reopening.
     //=========================================================
-    ControlledRealTimeReopenThread<IndexSearcher> nrtReopenThread = new ControlledRealTimeReopenThread<>(trackingIndexWriter,
+    nrtReopenThread = new ControlledRealTimeReopenThread<>(trackingIndexWriter,
         searcherManager, appConfig.getLucene().getRefreshIndexMinInSeconds() + 10, appConfig.getLucene().getRefreshIndexMinInSeconds());
     nrtReopenThread.setName("NRT Reopen Thread");
     nrtReopenThread.setPriority(Math.min(Thread.currentThread().getPriority() + 2, Thread.MAX_PRIORITY));
@@ -69,16 +82,20 @@ public class LuceneService implements LogAware {
   }
 
   public void index(long id, long time, String content) throws IOException {
-    Document doc = new Document();
-    doc.add(new LongField("id", id, Field.Store.YES));
-    doc.add(new LongField("time", time, Field.Store.NO));
-    doc.add(new StringField("content", content, Field.Store.NO));
-    indexWriter.addDocument(doc);
-    if (indexed.incrementAndGet() % 10000 == 0) {
-      searcherManager.maybeRefresh();
-    }
-    if (indexed.incrementAndGet() % 100000 == 0) {
-      indexWriter.commit();
+    if (time < from || time >= to) {
+      log().error("Tweet {} is not in interval {}-{to}. Skipping", id, from, to);
+    } else {
+      Document doc = new Document();
+      doc.add(new LongField("id", id, Field.Store.YES));
+      doc.add(new LongField("time", time, Field.Store.NO));
+      doc.add(new StringField("content", content, Field.Store.NO));
+      indexWriter.addDocument(doc);
+      if (indexed.incrementAndGet() % 10000 == 0) {
+        searcherManager.maybeRefresh();
+      }
+      if (indexed.incrementAndGet() % 100000 == 0) {
+        indexWriter.commit();
+      }
     }
   }
 
@@ -130,10 +147,11 @@ public class LuceneService implements LogAware {
 
   @SneakyThrows
   synchronized void reset() {
-    if(indexed.getAndSet(0) > 0) {
+    if (indexed.getAndSet(0) > 0) {
       log().info("Cleaning up resources");
       try {
         indexWriter.commit();
+        nrtReopenThread.close();
         searcherManager.close();
         Files.delete(getPath());
         System.gc();
@@ -146,4 +164,17 @@ public class LuceneService implements LogAware {
       log().info("Nothing to clean");
     }
   }
+
+  private static long calculateCurrentIntervalStart(Instant now, int appsNumber, int thisAppNumber, long appsInterval) {
+    long dayStart = Utils.toMillis(Utils.getDayStart(now));
+    int intervalsNumberSinceDayStart = Utils.getIntervalsNumberSinceDayStart(now, appsInterval);
+    int remainder = intervalsNumberSinceDayStart % appsNumber;
+    long start = dayStart + (intervalsNumberSinceDayStart - remainder) * appsInterval;
+    if (remainder != thisAppNumber) {
+      start += appsInterval * appsNumber;
+    }
+    return start;
+  }
+
+
 }

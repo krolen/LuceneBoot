@@ -19,7 +19,7 @@ public class AppConfig {
   private final int appsNumber = 3;
   private int thisAppNumber;
   private long duration = Duration.ofMinutes(90).toMillis();
-  private long appsInterval = Duration.ofMinutes(30).toMillis();
+  private long appsInterval = Duration.ofMinutes(60).toMillis();
 
   private Lucene lucene;
 

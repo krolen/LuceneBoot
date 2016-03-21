@@ -1,8 +1,10 @@
 package my.test.service;
 
 import my.test.AppConfig;
-import my.test.LogAware;
+import my.test.utils.LogAware;
+import my.test.utils.Utils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.DefaultManagedAwareThreadFactory;
 import org.springframework.stereotype.Service;
 
@@ -25,31 +27,40 @@ public class ControlService implements LogAware {
 
   @PostConstruct
   public void init() {
+//    long appsInterval = appConfig.getAppsInterval();
+//    int thisAppNumber = appConfig.getThisAppNumber();
+//    int appsNumber = appConfig.getAppsNumber();
+//
+//    ScheduledExecutorService service = Executors.newScheduledThreadPool(1, new DefaultManagedAwareThreadFactory() {
+//      @Override
+//      public Thread newThread(Runnable r) {
+//        Thread thread = super.newThread(r);
+//        thread.setDaemon(true);
+//        return thread;
+//      }
+//    });
+//
+//    service.schedule((Runnable) () -> {
+//      process(Instant.now(), appsInterval, thisAppNumber, appsNumber);
+//    }, appsInterval / appsNumber / 2, TimeUnit.MINUTES);
+  }
+
+  @Scheduled(cron = "0 0/15 * * * *")
+  @Scheduled(cron = "0 0/45 * * * *")
+  public void schedule() {
+    log().info("Scheduling next control task execution");
     long appsInterval = appConfig.getAppsInterval();
     int thisAppNumber = appConfig.getThisAppNumber();
     int appsNumber = appConfig.getAppsNumber();
-
-    ScheduledExecutorService service = Executors.newScheduledThreadPool(1, new DefaultManagedAwareThreadFactory() {
-      @Override
-      public Thread newThread(Runnable r) {
-        Thread thread = super.newThread(r);
-        thread.setDaemon(true);
-        return thread;
-      }
-    });
-    service.schedule((Runnable) () -> {
-      process(Instant.now(), appsInterval, thisAppNumber, appsNumber);
-    }, appsInterval / appsNumber / 2, TimeUnit.MINUTES);
+    process(Instant.now(), appsInterval, thisAppNumber, appsNumber);
   }
 
   void process(Instant now, long appsInterval, int thisAppNumber, int appsNumber) {
-    LocalDateTime dateTime = LocalDateTime.ofInstant(now, ZoneId.systemDefault());
-    LocalDateTime dayStart = dateTime.with(LocalTime.MIN);
-    long sinceDayStart = Duration.between(dayStart, dateTime).toMillis();
-    int intervalsNumber = (int) (sinceDayStart / appsInterval);
+    int intervalsNumber = Utils.getIntervalsNumberSinceDayStart(now, appsInterval);
     if ((intervalsNumber % appsNumber) != thisAppNumber) {
       log().info("Resetting lucene index for application {}", thisAppNumber);
       luceneService.reset();
     }
   }
+
 }
