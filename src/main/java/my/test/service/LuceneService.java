@@ -5,10 +5,7 @@ import my.test.AppConfig;
 import my.test.utils.LogAware;
 import my.test.utils.Utils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.LongField;
-import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.TrackingIndexWriter;
@@ -88,7 +85,7 @@ public class LuceneService implements LogAware {
       Document doc = new Document();
       doc.add(new LongField("id", id, Field.Store.YES));
       doc.add(new LongField("time", time, Field.Store.NO));
-      doc.add(new StringField("content", content, Field.Store.NO));
+      doc.add(new TextField("content", content, Field.Store.NO));
       indexWriter.addDocument(doc);
       if (indexed.incrementAndGet() % 10000 == 0) {
         searcherManager.maybeRefresh();
