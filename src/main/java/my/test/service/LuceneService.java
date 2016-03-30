@@ -111,7 +111,7 @@ public class LuceneService implements LogAware {
     try {
       searcher = searcherManager.acquire();
       TopDocs docs = searcher.search(query, Optional.ofNullable(hitsCountToReturn).orElse(appConfig.getLucene().getHitsToReturn()));
-      System.out.println("Found " + docs.totalHits + " docs for counter=1");
+      log().debug("Found " + docs.totalHits + " docs for counter=1");
       return docs;
     } finally {
       Optional.ofNullable(searcher).ifPresent((reference) -> {
@@ -159,8 +159,8 @@ public class LuceneService implements LogAware {
 
   @SneakyThrows
   synchronized void reset() {
+    log().info("Cleaning up resources, amount of docs to clear: " + indexed.get());
     if (indexed.getAndSet(0) > 0) {
-      log().info("Cleaning up resources");
       try {
         indexWriter.commit();
         indexWriter.close();

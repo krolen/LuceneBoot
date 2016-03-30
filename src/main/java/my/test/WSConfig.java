@@ -29,7 +29,6 @@ public class WSConfig implements WebSocketConfigurer {
     registry.addHandler(tweetBytesHandler(), "/bytesSaveTweet").setHandshakeHandler(handshakeHandler()).setAllowedOrigins("*");
   }
 
-
   @Bean
   public WebSocketHandler tweetHandler() {
     return new MyHandler();

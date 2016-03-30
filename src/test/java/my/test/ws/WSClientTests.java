@@ -44,7 +44,7 @@ public class WSClientTests {
 //    ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
 
     long l = System.nanoTime();
-    for (int i = 5; i < 100_006; i++) {
+    for (int i = 5; i < 106; i++) {
       String msg = "this is my super mega text" + i;
       remote.sendString((long)i + "|" + (long)i  + "|" + msg);
     }
@@ -60,7 +60,7 @@ public class WSClientTests {
     ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
 //    remote.setBatchMode(BatchMode.OFF);
     long l = System.nanoTime();
-    for (int i = 5; i < 10_000_006; i++) {
+    for (int i = 5; i < 106; i++) {
       String msg = "this is " + i;
       byte[] bytes = msg.getBytes();
       buffer.putLong(i).putLong(i).put(bytes).rewind();

@@ -45,8 +45,8 @@ public class ControlService implements LogAware {
 //    }, appsInterval / appsNumber / 2, TimeUnit.MINUTES);
   }
 
-//  @Scheduled(cron = "0 */5 * * * *")
-  @Scheduled(cron = "0 15/30 * * * *")
+  @Scheduled(cron = "0 */5 * * * *")
+//  @Scheduled(cron = "0 15/30 * * * *")
   public void schedule() {
     log().info("Scheduling next control task execution");
     long appsInterval = appConfig.getAppsInterval();
@@ -57,10 +57,10 @@ public class ControlService implements LogAware {
 
   void process(Instant now, long appsInterval, int thisAppNumber, int appsNumber) {
     int intervalsNumber = Utils.getIntervalsNumberSinceDayStart(now, appsInterval);
-    if ((intervalsNumber % appsNumber) != thisAppNumber) {
+//    if ((intervalsNumber % appsNumber) != thisAppNumber) {
       log().info("Resetting lucene index for application {}", thisAppNumber);
       luceneService.reset();
-    }
+//    }
   }
 
 }
