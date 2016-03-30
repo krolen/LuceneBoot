@@ -1,10 +1,7 @@
 package my.test.ws;
 
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.eclipse.jetty.websocket.api.RemoteEndpoint;
-import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.StatusCode;
-import org.eclipse.jetty.websocket.api.WriteCallback;
+import org.eclipse.jetty.websocket.api.*;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.After;
@@ -48,10 +45,12 @@ public class WSClientTests {
 
     Session session = socket.getSession();
     RemoteEndpoint remote = session.getRemote();
+//    ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
 
     long l = System.nanoTime();
     for (int i = 5; i < 300006; i++) {
-      remote.sendString("this is " + i);
+      String msg = "this is my super mega text" + i;
+      remote.sendString((long)i + "|" + (long)i  + "|" + msg);
     }
     System.out.println(System.nanoTime() - l);
   }
@@ -62,26 +61,22 @@ public class WSClientTests {
 
     Session session = socket.getSession();
     RemoteEndpoint remote = session.getRemote();
+    ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
+//    remote.setBatchMode(BatchMode.OFF);
     long l = System.nanoTime();
+//    for (int i = 5; i < 30; i++) {
     for (int i = 5; i < 300006; i++) {
       String msg = "this is " + i;
       byte[] bytes = msg.getBytes();
-      ByteBuffer buffer = ByteBuffer.allocate(8 + 8 + bytes.length);
-      buffer.putLong(i).putLong(i).put(bytes);
-      remote.sendBytes(buffer, new WriteCallback() {
-        @Override
-        public void writeFailed(Throwable x) {
-          x.printStackTrace();
-        }
-
-        @Override
-        public void writeSuccess() {
-          System.out.println("Success");
-        }
-      });
+      buffer.putLong(i).putLong(i).put(bytes).rewind();
+      buffer.limit(bytes.length + 16);
+      remote.sendBytes(buffer);
+      buffer.clear();
     }
     System.out.println(System.nanoTime() - l);
   }
+
+
 
   @After
   public void tearDown() throws Exception {

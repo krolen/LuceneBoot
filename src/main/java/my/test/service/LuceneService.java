@@ -79,9 +79,9 @@ public class LuceneService implements LogAware {
   }
 
   public void index(long id, long time, String content) throws IOException {
-    if (time < from || time >= to) {
-      log().error("Tweet {} is not in interval {}-{to}. Skipping", id, from, to);
-    } else {
+//    if (time < from || time >= to) {
+//      log().error("Tweet {} is not in interval {}-{}. Skipping", id, from, to);
+//    } else {
       Document doc = new Document();
       doc.add(new LongField("id", id, Field.Store.YES));
       doc.add(new LongField("time", time, Field.Store.NO));
@@ -93,7 +93,7 @@ public class LuceneService implements LogAware {
       if (indexed.incrementAndGet() % 100000 == 0) {
         indexWriter.commit();
       }
-    }
+//    }
   }
 
   public TopDocs search(Query query, Integer hitsCountToReturn) throws IOException {
