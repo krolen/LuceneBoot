@@ -1,17 +1,13 @@
 package my.test.ws;
 
-import com.google.common.util.concurrent.Uninterruptibles;
 import org.eclipse.jetty.websocket.api.*;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -20,14 +16,14 @@ import java.util.concurrent.TimeUnit;
 public class WSClientTests {
 
   private WebSocketClient client;
-  private SimpleEchoSocket socket;
+  private SimpleSocket socket;
 
   public void setUp(String destUri) throws Exception {
     System.setProperty("org.eclipse.jetty.websocket.LEVEL", "INFO");
 
     client = new WebSocketClient();
 
-    socket = new SimpleEchoSocket();
+    socket = new SimpleSocket();
     client.start();
     URI echoUri = new URI(destUri);
     ClientUpgradeRequest request = new ClientUpgradeRequest();
@@ -48,14 +44,14 @@ public class WSClientTests {
 //    ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
 
     long l = System.nanoTime();
-    for (int i = 5; i < 300006; i++) {
+    for (int i = 5; i < 100_006; i++) {
       String msg = "this is my super mega text" + i;
       remote.sendString((long)i + "|" + (long)i  + "|" + msg);
     }
     System.out.println(System.nanoTime() - l);
   }
 
-  @Test
+  @Test // TODO: 3/30/2016 Surprise - this one works slower....
   public void testBinary() throws Exception {
     setUp("ws://localhost:8080/bytesSaveTweet");
 
@@ -64,8 +60,7 @@ public class WSClientTests {
     ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
 //    remote.setBatchMode(BatchMode.OFF);
     long l = System.nanoTime();
-//    for (int i = 5; i < 30; i++) {
-    for (int i = 5; i < 300006; i++) {
+    for (int i = 5; i < 10_000_006; i++) {
       String msg = "this is " + i;
       byte[] bytes = msg.getBytes();
       buffer.putLong(i).putLong(i).put(bytes).rewind();

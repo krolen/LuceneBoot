@@ -7,6 +7,7 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -14,8 +15,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by kkulagin on 3/29/2016.
  */
-@WebSocket(maxTextMessageSize = 64 * 1024)
-public class SimpleEchoSocket {
+@WebSocket(maxTextMessageSize = 64 * 1024, maxIdleTime = 6 * 60 * 60 * 1000)
+public class SimpleSocket {
 
   private final CountDownLatch closeLatch;
   private final CountDownLatch openLatch;
@@ -23,7 +24,7 @@ public class SimpleEchoSocket {
   @SuppressWarnings("unused")
   private Session session;
 
-  public SimpleEchoSocket() {
+  public SimpleSocket() {
     this.closeLatch = new CountDownLatch(1);
     this.openLatch = new CountDownLatch(1);
   }

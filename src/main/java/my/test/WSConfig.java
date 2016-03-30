@@ -14,6 +14,8 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 import org.springframework.web.socket.server.jetty.JettyRequestUpgradeStrategy;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
+import java.time.Duration;
+
 /**
  * Created by kkulagin on 3/29/2016.
  */
@@ -41,8 +43,8 @@ public class WSConfig implements WebSocketConfigurer {
   @Bean
   public DefaultHandshakeHandler handshakeHandler() {
     WebSocketPolicy policy = new WebSocketPolicy(WebSocketBehavior.SERVER);
-    policy.setInputBufferSize(8192 * 2);
-    policy.setIdleTimeout(600000);
+    policy.setInputBufferSize(8192 * 4);
+    policy.setIdleTimeout(Duration.ofHours(6).toMillis());
     return new DefaultHandshakeHandler(new JettyRequestUpgradeStrategy(new WebSocketServerFactory(policy)));
   }
 }

@@ -45,6 +45,7 @@ public class ControlService implements LogAware {
 //    }, appsInterval / appsNumber / 2, TimeUnit.MINUTES);
   }
 
+//  @Scheduled(cron = "0 */5 * * * *")
   @Scheduled(cron = "0 15/30 * * * *")
   public void schedule() {
     log().info("Scheduling next control task execution");

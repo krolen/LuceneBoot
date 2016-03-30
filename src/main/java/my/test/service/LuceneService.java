@@ -15,15 +15,19 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.store.MMapDirectory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.FileSystemUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -38,14 +42,15 @@ public class LuceneService implements LogAware {
 
   private ReferenceManager<IndexSearcher> searcherManager;
   private IndexWriter indexWriter;
-  private AtomicLong indexed = new AtomicLong();
+  private AtomicInteger indexed = new AtomicInteger();
   private StandardAnalyzer analyzer;
   private ControlledRealTimeReopenThread<IndexSearcher> nrtReopenThread;
   private long from;
   private long to;
+  private Path path;
 
   @PostConstruct
-  public void init() throws IOException {
+  public void init() throws IOException, QueryNodeException {
     int thisAppNumber = appConfig.getThisAppNumber();
     long appsInterval = appConfig.getAppsInterval();
     int appsNumber = appConfig.getAppsNumber();
@@ -76,6 +81,11 @@ public class LuceneService implements LogAware {
     nrtReopenThread.setPriority(Math.min(Thread.currentThread().getPriority() + 2, Thread.MAX_PRIORITY));
     nrtReopenThread.setDaemon(true);
     nrtReopenThread.start();
+
+    TopDocs topDocs = search(parse("*:*"), 1);
+    log().info("Setting current indexed documents to " + topDocs.totalHits);
+    indexed.set(topDocs.totalHits);
+    log().info("Service started");
   }
 
   public void index(long id, long time, String content) throws IOException {
@@ -138,8 +148,13 @@ public class LuceneService implements LogAware {
     return new StandardQueryParser(analyzer).parse(query, "content");
   }
 
-  private Path getPath() {
-    return Paths.get(appConfig.getLucene().getIndexFilePath()).resolve(String.valueOf(appConfig.getThisAppNumber()));
+  private synchronized Path getPath() {
+    if(path == null) {
+      path = Paths.get(appConfig.getLucene().getIndexFilePath()).
+          resolve(String.valueOf(appConfig.getThisAppNumber())).
+          resolve(LocalDateTime.now().format(new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
+    }
+    return path;
   }
 
   @SneakyThrows
@@ -148,12 +163,20 @@ public class LuceneService implements LogAware {
       log().info("Cleaning up resources");
       try {
         indexWriter.commit();
+        indexWriter.close();
         nrtReopenThread.close();
         searcherManager.close();
-        Files.delete(getPath());
         System.gc();
       } catch (Exception e) {
-        log().warn("Error cleaning up resources", e);
+        log().error("Error cleaning up resources", e);
+      } finally {
+        try {
+          FileSystemUtils.deleteRecursively(getPath().toFile());
+        } catch (Exception ignored) {
+          log().warn("Error deleting directory", ignored);
+        }
+        path = null;
+        indexed.set(0);
       }
       log().info("Re-initializing");
       init();

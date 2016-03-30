@@ -3,6 +3,8 @@ package my.test;
 import org.junit.Test;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoUnit;
 
 /**
@@ -18,5 +20,13 @@ public class JavaTimeTest {
     Duration duration = Duration.between(dayStart, dateTime);
     long hours = duration.toHours();
     System.out.println(hours);
+  }
+
+  @Test
+  public void testTimeFormat() {
+    LocalDateTime now = LocalDateTime.now();
+    System.out.println(now.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+    System.out.println(now.format(
+        new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
   }
 }
