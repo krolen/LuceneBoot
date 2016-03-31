@@ -10,3 +10,7 @@ management:
  context-path: /manage
  security:
     enabled: false
+
+security:
+  basic:
+    enabled: false
