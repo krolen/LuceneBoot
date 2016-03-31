@@ -89,9 +89,9 @@ public class LuceneService implements LogAware {
   }
 
   public void index(long id, long time, String content) throws IOException {
-//    if (time < from || time >= to) {
-//      log().error("Tweet {} is not in interval {}-{}. Skipping", id, from, to);
-//    } else {
+    if (time < from || time > to) {
+      log().error("Tweet {} is not in interval {}-{}. Skipping", id, from, to);
+    } else {
       Document doc = new Document();
       doc.add(new LongField("id", id, Field.Store.YES));
       doc.add(new LongField("time", time, Field.Store.NO));
@@ -103,7 +103,7 @@ public class LuceneService implements LogAware {
       if (indexed.incrementAndGet() % 100000 == 0) {
         indexWriter.commit();
       }
-//    }
+    }
   }
 
   public TopDocs search(Query query, Integer hitsCountToReturn) throws IOException {
@@ -149,7 +149,7 @@ public class LuceneService implements LogAware {
   }
 
   private synchronized Path getPath() {
-    if(path == null) {
+    if (path == null) {
       path = Paths.get(appConfig.getLucene().getIndexFilePath()).
           resolve(String.valueOf(appConfig.getThisAppNumber())).
           resolve(LocalDateTime.now().format(new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
@@ -186,9 +186,9 @@ public class LuceneService implements LogAware {
   }
 
   private static long calculateCurrentIntervalStart(Instant now, int appsNumber, int thisAppNumber, long appsInterval) {
-    long dayStart = Utils.toMillis(Utils.getDayStart(now));
     int intervalsNumberSinceDayStart = Utils.getIntervalsNumberSinceDayStart(now, appsInterval);
     int remainder = intervalsNumberSinceDayStart % appsNumber;
+    long dayStart = Utils.toMillis(Utils.getDayStart(now));
     long start = dayStart + (intervalsNumberSinceDayStart - remainder) * appsInterval;
     if (remainder != thisAppNumber) {
       start += appsInterval * appsNumber;
