@@ -15,10 +15,10 @@ public class LuceneApplication {
 
   public static void main(String[] args) {
     int thisAppNumber = Integer.parseInt(System.getProperty("thisAppNumber"));
-    int port = 8080 + thisAppNumber;
+    int port = 8880 + thisAppNumber;
     System.setProperty("server.port", String.valueOf(port));
-    int managementPort = 8880 + thisAppNumber;
-    System.setProperty("management.port", String.valueOf(port));
+    int managementPort = 8890 + thisAppNumber;
+    System.setProperty("management.port", String.valueOf(managementPort));
     SpringApplication.run(LuceneApplication.class, args);
   }
 
