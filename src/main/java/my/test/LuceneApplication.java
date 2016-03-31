@@ -14,8 +14,11 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 public class LuceneApplication {
 
   public static void main(String[] args) {
-    int port = 8080 + Integer.parseInt(System.getProperty("thisAppNumber"));
+    int thisAppNumber = Integer.parseInt(System.getProperty("thisAppNumber"));
+    int port = 8080 + thisAppNumber;
     System.setProperty("server.port", String.valueOf(port));
+    int managementPort = 8880 + thisAppNumber;
+    System.setProperty("management.port", String.valueOf(port));
     SpringApplication.run(LuceneApplication.class, args);
   }
 

@@ -5,3 +5,8 @@ app:
     hitsToReturn: 100
 
   thisAppNumber: ${thisAppNumber}
+
+management:
+ context-path: /manage
+ security:
+    enabled: false
