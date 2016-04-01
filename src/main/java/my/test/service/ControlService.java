@@ -53,7 +53,7 @@ public class ControlService implements LogAware {
 
   void process(Instant now, long appsInterval, int thisAppNumber, int appsNumber) {
     int intervalsNumber = Utils.getIntervalsNumberSinceDayStart(now, appsInterval);
-    if ((intervalsNumber % appsNumber) + 1 == thisAppNumber) {
+    if (((intervalsNumber + 1) % appsNumber) == thisAppNumber) {
       log().info("Resetting lucene index for application {}", thisAppNumber);
       luceneService.reset();
     }

@@ -21,6 +21,7 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -47,7 +48,7 @@ public class LuceneService implements LogAware {
   private ControlledRealTimeReopenThread<IndexSearcher> nrtReopenThread;
   private long from;
   private long to;
-  private Path path;
+  private volatile Path path;
 
   @PostConstruct
   public void init() throws IOException, QueryNodeException {
@@ -90,7 +91,7 @@ public class LuceneService implements LogAware {
 
   public void index(long id, long time, String content) throws IOException {
     if (time < from || time > to) {
-      log().error("Tweet {} is not in interval {}-{}. Skipping", id, from, to);
+      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
     } else {
       Document doc = new Document();
       doc.add(new LongField("id", id, Field.Store.YES));
@@ -157,10 +158,14 @@ public class LuceneService implements LogAware {
     return path;
   }
 
+  private synchronized void setPath(Path path) {
+    this.path = path;
+  }
+
   @SneakyThrows
   synchronized void reset() {
     log().info("Cleaning up resources, amount of docs to clear: " + indexed.get());
-    if (indexed.getAndSet(0) > 0) {
+//    if (indexed.getAndSet(0) > 0) {
       try {
         indexWriter.commit();
         indexWriter.close();
@@ -175,14 +180,14 @@ public class LuceneService implements LogAware {
         } catch (Exception ignored) {
           log().warn("Error deleting directory", ignored);
         }
-        path = null;
+        setPath(null);
         indexed.set(0);
       }
       log().info("Re-initializing");
       init();
-    } else {
-      log().info("Nothing to clean");
-    }
+//    } else {
+//      log().info("Nothing to clean");
+//    }
   }
 
   private static long calculateCurrentIntervalStart(Instant now, int appsNumber, int thisAppNumber, long appsInterval) {
@@ -191,7 +196,7 @@ public class LuceneService implements LogAware {
     long dayStart = Utils.toMillis(Utils.getDayStart(now));
     long start = dayStart + (intervalsNumberSinceDayStart - remainder) * appsInterval;
     if (remainder != thisAppNumber) {
-      start += appsInterval * appsNumber;
+      start += appsInterval * thisAppNumber;
     }
     return start;
   }
