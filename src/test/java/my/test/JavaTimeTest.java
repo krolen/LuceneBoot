@@ -29,4 +29,11 @@ public class JavaTimeTest {
     System.out.println(now.format(
         new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
   }
+
+  @Test
+  public void testTimeFormat2() {
+    LocalDateTime localDateTime = Instant.ofEpochMilli(System.currentTimeMillis()).atZone(ZoneId.systemDefault()).toLocalDateTime();
+    System.out.println(localDateTime.format(
+        new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
+  }
 }

@@ -24,8 +24,10 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -52,41 +54,7 @@ public class LuceneService implements LogAware {
 
   @PostConstruct
   public void init() throws IOException, QueryNodeException {
-    int thisAppNumber = appConfig.getThisAppNumber();
-    long appsInterval = appConfig.getAppsInterval();
-    int appsNumber = appConfig.getAppsNumber();
-
-    Instant now = Instant.now();
-    from = calculateCurrentIntervalStart(now, appsNumber, thisAppNumber, appsInterval);
-    to = from + appConfig.getDuration();
-    log().info("Resetting service for app {} for dates: {} - {}", thisAppNumber, from, to);
-    analyzer = new StandardAnalyzer();
-    // TODO: 07.02.2016 offheap
-    MMapDirectory index = new MMapDirectory(getPath());
-
-    IndexWriterConfig config = new IndexWriterConfig(analyzer);
-    indexWriter = new IndexWriter(index, config);
-
-    //=========================================================
-    // This bit is specific to NRT
-    //=========================================================
-    TrackingIndexWriter trackingIndexWriter = new TrackingIndexWriter(indexWriter);
-    searcherManager = new SearcherManager(indexWriter, true, null);
-
-    //=========================================================
-    // This thread handles the actual reader reopening.
-    //=========================================================
-    nrtReopenThread = new ControlledRealTimeReopenThread<>(trackingIndexWriter,
-        searcherManager, appConfig.getLucene().getRefreshIndexMinInSeconds() + 10, appConfig.getLucene().getRefreshIndexMinInSeconds());
-    nrtReopenThread.setName("NRT Reopen Thread");
-    nrtReopenThread.setPriority(Math.min(Thread.currentThread().getPriority() + 2, Thread.MAX_PRIORITY));
-    nrtReopenThread.setDaemon(true);
-    nrtReopenThread.start();
-
-    TopDocs topDocs = search(parse("*:*"), 1);
-    log().info("Setting current indexed documents to " + topDocs.totalHits);
-    indexed.set(topDocs.totalHits);
-    log().info("Service started");
+    init(Instant.now().minusMillis(appConfig.getAppsInterval() * appConfig.getAppsNumber()));
   }
 
   public void index(long id, long time, String content) throws IOException {
@@ -149,17 +117,11 @@ public class LuceneService implements LogAware {
     return new StandardQueryParser(analyzer).parse(query, "content");
   }
 
-  private synchronized Path getPath() {
-    if (path == null) {
-      path = Paths.get(appConfig.getLucene().getIndexFilePath()).
+  private Path createPath(long time) {
+      LocalDateTime timeFrom = Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toLocalDateTime();
+      return Paths.get(appConfig.getLucene().getIndexFilePath()).
           resolve(String.valueOf(appConfig.getThisAppNumber())).
-          resolve(LocalDateTime.now().format(new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
-    }
-    return path;
-  }
-
-  private synchronized void setPath(Path path) {
-    this.path = path;
+          resolve(timeFrom.format(new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
   }
 
   @SneakyThrows
@@ -176,18 +138,54 @@ public class LuceneService implements LogAware {
         log().error("Error cleaning up resources", e);
       } finally {
         try {
-          FileSystemUtils.deleteRecursively(getPath().toFile());
+          FileSystemUtils.deleteRecursively(path.toFile());
         } catch (Exception ignored) {
           log().warn("Error deleting directory", ignored);
         }
-        setPath(null);
         indexed.set(0);
       }
       log().info("Re-initializing");
-      init();
+      init(Instant.now());
 //    } else {
 //      log().info("Nothing to clean");
 //    }
+  }
+
+  private void init(Instant instant) throws QueryNodeException, IOException {
+    int thisAppNumber = appConfig.getThisAppNumber();
+    long appsInterval = appConfig.getAppsInterval();
+    int appsNumber = appConfig.getAppsNumber();
+
+    from = calculateCurrentIntervalStart(instant, appsNumber, thisAppNumber, appsInterval);
+    to = from + appConfig.getDuration();
+    log().info("Resetting service for app {} for dates: {} - {}", thisAppNumber, from, to);
+    analyzer = new StandardAnalyzer();
+    path = createPath(from);
+    // TODO: 07.02.2016 offheap
+    MMapDirectory index = new MMapDirectory(path);
+
+    IndexWriterConfig config = new IndexWriterConfig(analyzer);
+    indexWriter = new IndexWriter(index, config);
+
+    //=========================================================
+    // This bit is specific to NRT
+    //=========================================================
+    TrackingIndexWriter trackingIndexWriter = new TrackingIndexWriter(indexWriter);
+    searcherManager = new SearcherManager(indexWriter, true, null);
+    //=========================================================
+    // This thread handles the actual reader reopening.
+    //=========================================================
+    nrtReopenThread = new ControlledRealTimeReopenThread<>(trackingIndexWriter,
+        searcherManager, appConfig.getLucene().getRefreshIndexMinInSeconds() + 10, appConfig.getLucene().getRefreshIndexMinInSeconds());
+    nrtReopenThread.setName("NRT Reopen Thread");
+    nrtReopenThread.setPriority(Math.min(Thread.currentThread().getPriority() + 2, Thread.MAX_PRIORITY));
+    nrtReopenThread.setDaemon(true);
+    nrtReopenThread.start();
+
+    TopDocs topDocs = search(parse("*:*"), 1);
+    log().info("Setting current indexed documents to " + topDocs.totalHits);
+    indexed.set(topDocs.totalHits);
+    log().info("Service started");
   }
 
   private static long calculateCurrentIntervalStart(Instant now, int appsNumber, int thisAppNumber, long appsInterval) {

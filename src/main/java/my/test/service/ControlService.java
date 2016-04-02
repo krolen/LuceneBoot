@@ -4,6 +4,8 @@ import my.test.AppConfig;
 import my.test.utils.LogAware;
 import my.test.utils.Utils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +16,7 @@ import java.time.Instant;
  * Created by kkulagin on 3/15/2016.
  */
 @Service
-public class ControlService implements LogAware {
+public class ControlService implements LogAware, ApplicationListener<ContextStartedEvent> {
 
   @Autowired
   private LuceneService luceneService;
@@ -23,25 +25,14 @@ public class ControlService implements LogAware {
 
   @PostConstruct
   public void init() {
-//    long appsInterval = appConfig.getAppsInterval();
-//    int thisAppNumber = appConfig.getThisAppNumber();
-//    int appsNumber = appConfig.getAppsNumber();
-//
-//    ScheduledExecutorService service = Executors.newScheduledThreadPool(1, new DefaultManagedAwareThreadFactory() {
-//      @Override
-//      public Thread newThread(Runnable r) {
-//        Thread thread = super.newThread(r);
-//        thread.setDaemon(true);
-//        return thread;
-//      }
-//    });
-//
-//    service.schedule((Runnable) () -> {
-//      process(Instant.now(), appsInterval, thisAppNumber, appsNumber);
-//    }, appsInterval / appsNumber / 2, TimeUnit.MINUTES);
   }
 
-//  @Scheduled(cron = "0 */5 * * * *")
+  @Override
+  public void onApplicationEvent(ContextStartedEvent event) {
+    schedule();
+  }
+
+  //  @Scheduled(cron = "0 */5 * * * *")
   @Scheduled(cron = "0 15/30 * * * *")
   public void schedule() {
     log().info("Scheduling next control task execution");
