@@ -59,7 +59,7 @@ public class LuceneService implements LogAware {
     Instant now = Instant.now();
     from = calculateCurrentIntervalStart(now, appsNumber, thisAppNumber, appsInterval);
     to = from + appConfig.getDuration();
-
+    log().info("Resetting service for app {} for dates: {} - {}", thisAppNumber, from, to);
     analyzer = new StandardAnalyzer();
     // TODO: 07.02.2016 offheap
     MMapDirectory index = new MMapDirectory(getPath());
@@ -101,7 +101,7 @@ public class LuceneService implements LogAware {
       if (indexed.incrementAndGet() % 10000 == 0) {
         searcherManager.maybeRefresh();
       }
-      if (indexed.incrementAndGet() % 100000 == 0) {
+      if (indexed.get() % 100000 == 0) {
         indexWriter.commit();
       }
     }
@@ -195,11 +195,8 @@ public class LuceneService implements LogAware {
     int remainder = intervalsNumberSinceDayStart % appsNumber;
     long dayStart = Utils.toMillis(Utils.getDayStart(now));
     long start = dayStart + (intervalsNumberSinceDayStart - remainder) * appsInterval;
-    if (remainder != thisAppNumber) {
-      start += appsInterval * thisAppNumber;
-    }
+    start += appsInterval * (thisAppNumber == 0 ? appsNumber : thisAppNumber);
     return start;
   }
-
 
 }
