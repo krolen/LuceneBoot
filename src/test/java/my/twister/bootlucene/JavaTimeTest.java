@@ -1,4 +1,4 @@
-package my.test;
+package my.twister.bootlucene;
 
 import org.junit.Test;
 

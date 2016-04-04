@@ -1,4 +1,4 @@
-package my.test.service;
+package my.twister.bootlucene.service;
 
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;

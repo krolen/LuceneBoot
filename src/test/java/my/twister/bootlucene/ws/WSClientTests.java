@@ -1,4 +1,4 @@
-package my.test.ws;
+package my.twister.bootlucene.ws;
 
 import org.eclipse.jetty.websocket.api.*;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;

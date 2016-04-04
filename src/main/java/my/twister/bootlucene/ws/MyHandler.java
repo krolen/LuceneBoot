@@ -1,7 +1,7 @@
-package my.test.ws;
+package my.twister.bootlucene.ws;
 
 import com.google.common.base.Splitter;
-import my.test.service.LuceneService;
+import my.twister.bootlucene.service.LuceneService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;

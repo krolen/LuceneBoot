@@ -1,7 +1,7 @@
-package my.test;
+package my.twister.bootlucene;
 
-import my.test.ws.MyBytesHandler;
-import my.test.ws.MyHandler;
+import my.twister.bootlucene.ws.MyBytesHandler;
+import my.twister.bootlucene.ws.MyHandler;
 import org.eclipse.jetty.websocket.api.WebSocketBehavior;
 import org.eclipse.jetty.websocket.api.WebSocketPolicy;
 import org.eclipse.jetty.websocket.server.WebSocketServerFactory;

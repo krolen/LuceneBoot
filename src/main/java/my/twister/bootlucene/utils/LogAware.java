@@ -1,4 +1,4 @@
-package my.test.utils;
+package my.twister.bootlucene.utils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

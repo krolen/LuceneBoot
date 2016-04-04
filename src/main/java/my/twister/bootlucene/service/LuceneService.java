@@ -1,9 +1,9 @@
-package my.test.service;
+package my.twister.bootlucene.service;
 
 import lombok.SneakyThrows;
-import my.test.AppConfig;
-import my.test.utils.LogAware;
-import my.test.utils.Utils;
+import my.twister.bootlucene.AppConfig;
+import my.twister.bootlucene.utils.LogAware;
+import my.twister.bootlucene.utils.Utils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
@@ -21,17 +21,13 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author kkulagin

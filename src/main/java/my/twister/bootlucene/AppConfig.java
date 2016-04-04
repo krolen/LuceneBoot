@@ -1,4 +1,4 @@
-package my.test;
+package my.twister.bootlucene;
 
 import java.time.Duration;
 import lombok.Getter;

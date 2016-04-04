@@ -1,8 +1,8 @@
-package my.test.service;
+package my.twister.bootlucene.service;
 
-import my.test.AppConfig;
-import my.test.utils.LogAware;
-import my.test.utils.Utils;
+import my.twister.bootlucene.AppConfig;
+import my.twister.bootlucene.utils.LogAware;
+import my.twister.bootlucene.utils.Utils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextStartedEvent;

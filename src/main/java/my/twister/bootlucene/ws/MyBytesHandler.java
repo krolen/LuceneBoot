@@ -1,4 +1,4 @@
-package my.test.ws;
+package my.twister.bootlucene.ws;
 
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.socket.BinaryMessage;

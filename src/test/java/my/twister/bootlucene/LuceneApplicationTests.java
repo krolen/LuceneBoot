@@ -1,7 +1,7 @@
-package my.test;
+package my.twister.bootlucene;
 
-import my.test.service.LuceneService;
-import my.test.service.LuceneServiceTest;
+import my.twister.bootlucene.service.LuceneService;
+import my.twister.bootlucene.service.LuceneServiceTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;

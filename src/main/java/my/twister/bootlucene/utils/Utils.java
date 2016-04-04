@@ -1,4 +1,4 @@
-package my.test.utils;
+package my.twister.bootlucene.utils;
 
 import java.io.File;
 import java.nio.file.Files;
