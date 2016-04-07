@@ -1,7 +1,7 @@
 package my.twister.bootlucene.rest;
 
 import my.twister.bootlucene.service.LuceneService;
-import my.twister.bootlucene.utils.LogAware;
+import my.twister.utils.LogAware;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;

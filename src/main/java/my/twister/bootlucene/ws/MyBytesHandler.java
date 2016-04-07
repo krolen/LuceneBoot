@@ -1,11 +1,8 @@
 package my.twister.bootlucene.ws;
 
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.socket.BinaryMessage;
-import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.BinaryWebSocketHandler;
-import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
