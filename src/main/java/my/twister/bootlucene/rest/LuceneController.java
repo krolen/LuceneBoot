@@ -30,7 +30,7 @@ public class LuceneController implements LogAware {
   }
 
   @RequestMapping(value = "/searchBig", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-  public long searchBig(@RequestParam(value = "q") String query,
+  public int searchBig(@RequestParam(value = "q") String query,
                         @RequestParam(value = "max", required = false) Integer count,
                         @RequestParam(value = "path") String resultQueryPath) throws IOException, QueryNodeException {
     Query q = luceneService.parse(query);

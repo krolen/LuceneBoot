@@ -105,7 +105,7 @@ public class LuceneService implements LogAware {
     }
   }
 
-  public long searchBig(Query query, int hitsCountToReturn, String resultQueryPath) throws IOException {
+  public int searchBig(Query query, int hitsCountToReturn, String resultQueryPath) throws IOException {
     hitsCountToReturn = Math.min(hitsCountToReturn, MAX_BIG_DOCS);
     final Set<String> fieldsToReturn = ImmutableSet.of("id");
     ChronicleQueue queue = null;
@@ -124,7 +124,7 @@ public class LuceneService implements LogAware {
         appender.writeBytes(writeBytes.append((Long) tweetId));
         writeBytes.clear();
       }
-      return totalHits;
+      return scoreDocs.length;
     } finally {
       Optional.ofNullable(queue).ifPresent(Closeable::closeQuietly);
       Optional.ofNullable(searcher).ifPresent((reference) -> {
