@@ -69,14 +69,14 @@ public class LuceneService implements LogAware {
   }
 
   public void index(long id, long time, String content) throws IOException {
-//    if (time < from || time > to) {
-//      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
-//    } else {
+    if (time < from || time > to) {
+      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
+    } else {
       Document doc = new Document();
       doc.add(new LongField("id", id, Field.Store.YES));
       doc.add(new LongField("time", time, Field.Store.NO));
-      doc.add(new TextField("content", content, Field.Store.YES));
-//      doc.add(new TextField("content", content, Field.Store.NO));
+//      doc.add(new TextField("content", content, Field.Store.YES));
+      doc.add(new TextField("content", content, Field.Store.NO));
       indexWriter.addDocument(doc);
       if (indexed.incrementAndGet() % 10000 == 0) {
         searcherManager.maybeRefresh();
@@ -84,7 +84,7 @@ public class LuceneService implements LogAware {
       if (indexed.get() % 100000 == 0) {
         indexWriter.commit();
       }
-//    }
+    }
   }
 
   public TopDocs search(Query query, Integer hitsCountToReturn) throws IOException {
