@@ -38,6 +38,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,7 +66,7 @@ public class LuceneService implements LogAware {
 
   @PostConstruct
   public void init() throws IOException, QueryNodeException {
-    init(Instant.now().minusMillis(appConfig.getAppsInterval() * appConfig.getAppsNumber()));
+    init(Instant.now());
   }
 
   public void index(long id, long time, String content) throws IOException {
@@ -209,14 +210,19 @@ public class LuceneService implements LogAware {
     log().info("Service started");
   }
 
-  private static long calculateCurrentIntervalStart(Instant now, int appsNumber, int thisAppNumber, long appsInterval) {
-    int intervalsNumberSinceDayStart = Utils.getIntervalsNumberSinceDayStart(now, appsInterval);
-    int remainder = intervalsNumberSinceDayStart % appsNumber;
-    long dayStart = Utils.toMillis(Utils.getDayStart(now));
-    long start = dayStart + (intervalsNumberSinceDayStart - remainder) * appsInterval;
-    start += appsInterval * (thisAppNumber == 0 ? appsNumber : thisAppNumber);
-    return start;
+  private static long calculateCurrentIntervalStart(Instant instant, int appsNumber, int thisAppNumber, long appsInterval) {
+    LocalDateTime dateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+    LocalDateTime nextHourStart = dateTime.plus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.HOURS);
+    int closestUpperHour = nextHourStart.getHour();
+    if(closestUpperHour % appsNumber == thisAppNumber) {
+      return Utils.toMillis(nextHourStart);
+    } else if ((closestUpperHour - 1) % appsNumber == thisAppNumber) {
+      return Utils.toMillis(nextHourStart.minusHours(1));
+    } else {
+      return Utils.toMillis(nextHourStart.minusHours(2));
+    }
   }
+
 
   protected Analyzer analyzer() {
     return new LowercaseWhitespaceSacIndexAnalyzer();

@@ -31,6 +31,14 @@ public class JavaTimeTest {
   }
 
   @Test
+  public void testHourStart() {
+    LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.now(), ZoneId.systemDefault());
+    LocalDateTime nextHourStart = dateTime.plus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.HOURS);
+    int hour = nextHourStart.getHour();
+    System.out.println(hour);
+  }
+
+  @Test
   public void testTimeFormat2() {
     LocalDateTime localDateTime = Instant.ofEpochMilli(System.currentTimeMillis()).atZone(ZoneId.systemDefault()).toLocalDateTime();
     System.out.println(localDateTime.format(
