@@ -1,5 +1,6 @@
 package my.twister.bootlucene.utils;
 
+import my.twister.utils.Utils;
 import org.junit.Test;
 
 import java.time.Duration;

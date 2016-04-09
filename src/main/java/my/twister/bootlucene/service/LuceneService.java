@@ -1,10 +1,19 @@
 package my.twister.bootlucene.service;
 
+import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import my.twister.bootlucene.AppConfig;
+import my.twister.bootlucene.map.LowercaseWhitespaceSacIndexAnalyzer;
+import my.twister.bootlucene.map.LowercaseWhitespaceSacQueryAnalyzer;
+import my.twister.chronicle.ChronicleQueueDataService;
 import my.twister.utils.LogAware;
 import my.twister.utils.Utils;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import net.openhft.chronicle.bytes.Bytes;
+import net.openhft.chronicle.bytes.VanillaBytes;
+import net.openhft.chronicle.core.io.Closeable;
+import net.openhft.chronicle.queue.ChronicleQueue;
+import net.openhft.chronicle.queue.ExcerptAppender;
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.LongField;
@@ -13,6 +22,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.TrackingIndexWriter;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
+import org.apache.lucene.queryparser.flexible.core.QueryParserHelper;
 import org.apache.lucene.queryparser.flexible.standard.StandardQueryParser;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.MMapDirectory;
@@ -39,17 +49,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class LuceneService implements LogAware {
 
+  public static final int MAX_BIG_DOCS = 5_000_000;
+
   @Autowired
   private AppConfig appConfig;
 
   private ReferenceManager<IndexSearcher> searcherManager;
   private IndexWriter indexWriter;
   private AtomicInteger indexed = new AtomicInteger();
-  private StandardAnalyzer analyzer;
   private ControlledRealTimeReopenThread<IndexSearcher> nrtReopenThread;
   private long from;
   private long to;
   private volatile Path path;
+  private ChronicleQueueDataService queueDataService = ChronicleQueueDataService.getInstance();
 
   @PostConstruct
   public void init() throws IOException, QueryNodeException {
@@ -57,13 +69,14 @@ public class LuceneService implements LogAware {
   }
 
   public void index(long id, long time, String content) throws IOException {
-    if (time < from || time > to) {
-      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
-    } else {
+//    if (time < from || time > to) {
+//      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
+//    } else {
       Document doc = new Document();
       doc.add(new LongField("id", id, Field.Store.YES));
       doc.add(new LongField("time", time, Field.Store.NO));
-      doc.add(new TextField("content", content, Field.Store.NO));
+      doc.add(new TextField("content", content, Field.Store.YES));
+//      doc.add(new TextField("content", content, Field.Store.NO));
       indexWriter.addDocument(doc);
       if (indexed.incrementAndGet() % 10000 == 0) {
         searcherManager.maybeRefresh();
@@ -71,7 +84,7 @@ public class LuceneService implements LogAware {
       if (indexed.get() % 100000 == 0) {
         indexWriter.commit();
       }
-    }
+//    }
   }
 
   public TopDocs search(Query query, Integer hitsCountToReturn) throws IOException {
@@ -91,18 +104,28 @@ public class LuceneService implements LogAware {
     }
   }
 
-  public Set<Long> searchBig(Query query, Integer hitsCountToReturn, String path) throws IOException {
+  public long searchBig(Query query, int hitsCountToReturn, String resultQueryPath) throws IOException {
+    hitsCountToReturn = Math.min(hitsCountToReturn, MAX_BIG_DOCS);
+    final Set<String> fieldsToReturn = ImmutableSet.of("id");
+    ChronicleQueue queue = null;
     IndexSearcher searcher = null;
     try {
+      queue = queueDataService.createQueue(resultQueryPath);
+      final VanillaBytes<Void> writeBytes = Bytes.allocateDirect(Long.BYTES);
+      final ExcerptAppender appender = queue.createAppender();
+
       searcher = searcherManager.acquire();
-      TopDocs docs = searcher.search(query, Optional.ofNullable(hitsCountToReturn).orElse(appConfig.getLucene().getHitsToReturn()));
+      TopDocs docs = searcher.search(query, hitsCountToReturn);
       long totalHits = docs.totalHits;
       ScoreDoc[] scoreDocs = docs.scoreDocs;
       for (ScoreDoc scoreDoc : scoreDocs) {
-//        scoreDoc.
+        Number tweetId = searcher.doc(scoreDoc.doc, fieldsToReturn).getField("id").numericValue();
+        appender.writeBytes(writeBytes.append((Long) tweetId));
+        writeBytes.clear();
       }
-      return null;
+      return totalHits;
     } finally {
+      Optional.ofNullable(queue).ifPresent(Closeable::closeQuietly);
       Optional.ofNullable(searcher).ifPresent((reference) -> {
         try {
           searcherManager.release(reference);
@@ -113,7 +136,7 @@ public class LuceneService implements LogAware {
   }
 
   public Query parse(String query) throws QueryNodeException {
-    return new StandardQueryParser(analyzer).parse(query, "content");
+    return (Query) parser().parse(query, "content");
   }
 
   private Path createPath(long time) {
@@ -150,7 +173,7 @@ public class LuceneService implements LogAware {
 //    }
   }
 
-  private void init(Instant instant) throws QueryNodeException, IOException {
+  private void init(Instant instant) throws IOException, QueryNodeException {
     int thisAppNumber = appConfig.getThisAppNumber();
     long appsInterval = appConfig.getAppsInterval();
     int appsNumber = appConfig.getAppsNumber();
@@ -158,12 +181,11 @@ public class LuceneService implements LogAware {
     from = calculateCurrentIntervalStart(instant, appsNumber, thisAppNumber, appsInterval);
     to = from + appConfig.getDuration();
     log().info("Resetting service for app {} for dates: {} - {}", thisAppNumber, from, to);
-    analyzer = new StandardAnalyzer();
     path = createPath(from);
     // TODO: 07.02.2016 offheap
     MMapDirectory index = new MMapDirectory(path);
 
-    IndexWriterConfig config = new IndexWriterConfig(analyzer);
+    IndexWriterConfig config = new IndexWriterConfig(analyzer());
     indexWriter = new IndexWriter(index, config);
 
     //=========================================================
@@ -194,6 +216,18 @@ public class LuceneService implements LogAware {
     long start = dayStart + (intervalsNumberSinceDayStart - remainder) * appsInterval;
     start += appsInterval * (thisAppNumber == 0 ? appsNumber : thisAppNumber);
     return start;
+  }
+
+  protected Analyzer analyzer() {
+    return new LowercaseWhitespaceSacIndexAnalyzer();
+  }
+
+  protected QueryParserHelper parser() {
+    return new StandardQueryParser(queryAnalyzer());
+  }
+
+  protected Analyzer queryAnalyzer() {
+    return new LowercaseWhitespaceSacQueryAnalyzer();
   }
 
 }

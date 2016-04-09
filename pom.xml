@@ -31,6 +31,16 @@
             <groupId>my.twister</groupId>
             <artifactId>common</artifactId>
             <version>1.0-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>net.openhft</groupId>
+                    <artifactId>chronicle-map</artifactId>
+                </exclusion>
+                <!--<exclusion>-->
+                    <!--<groupId>net.openhft</groupId>-->
+                    <!--<artifactId>chronicle-queue</artifactId>-->
+                <!--</exclusion>-->
+            </exclusions>
         </dependency>
 
         <dependency>

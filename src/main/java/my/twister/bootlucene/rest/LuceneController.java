@@ -23,9 +23,18 @@ public class LuceneController implements LogAware {
   private LuceneService luceneService;
 
   @RequestMapping(value = "/search", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-  public TopDocs search(@RequestParam(value = "q") String query, @RequestParam(value = "max", required = false) Integer count) throws QueryNodeException, IOException {
+  public TopDocs search(@RequestParam(value = "q") String query, @RequestParam(value = "max", required = false) Integer count)
+      throws IOException, QueryNodeException {
     Query q = luceneService.parse(query);
     return luceneService.search(q, count);
+  }
+
+  @RequestMapping(value = "/searchBig", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+  public long searchBig(@RequestParam(value = "q") String query,
+                        @RequestParam(value = "max", required = false) Integer count,
+                        @RequestParam(value = "path") String resultQueryPath) throws IOException, QueryNodeException {
+    Query q = luceneService.parse(query);
+    return luceneService.searchBig(q, count == null ? LuceneService.MAX_BIG_DOCS : count, resultQueryPath);
   }
 
 
