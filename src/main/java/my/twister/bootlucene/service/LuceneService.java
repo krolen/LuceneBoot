@@ -75,7 +75,7 @@ public class LuceneService implements LogAware {
     } else {
       Document doc = new Document();
       doc.add(new LongField("id", id, Field.Store.YES));
-      doc.add(new LongField("time", time, Field.Store.NO));
+      doc.add(new LongField("time", time, Field.Store.YES));
 //      doc.add(new TextField("content", content, Field.Store.YES));
       doc.add(new TextField("content", content, Field.Store.NO));
       indexWriter.addDocument(doc);
@@ -107,12 +107,12 @@ public class LuceneService implements LogAware {
 
   public int searchBig(Query query, int hitsCountToReturn, String resultQueryPath) throws IOException {
     hitsCountToReturn = Math.min(hitsCountToReturn, MAX_BIG_DOCS);
-    final Set<String> fieldsToReturn = ImmutableSet.of("id");
+    final Set<String> fieldsToReturn = ImmutableSet.of("id", "time");
     ChronicleQueue queue = null;
     IndexSearcher searcher = null;
     try {
       queue = queueDataService.createQueue(resultQueryPath);
-      final VanillaBytes<Void> writeBytes = Bytes.allocateDirect(Long.BYTES);
+      final VanillaBytes<Void> writeBytes = Bytes.allocateDirect(Long.BYTES * 2);
       final ExcerptAppender appender = queue.createAppender();
 
       searcher = searcherManager.acquire();
@@ -120,8 +120,16 @@ public class LuceneService implements LogAware {
       long totalHits = docs.totalHits;
       ScoreDoc[] scoreDocs = docs.scoreDocs;
       for (ScoreDoc scoreDoc : scoreDocs) {
-        Number tweetId = searcher.doc(scoreDoc.doc, fieldsToReturn).getField("id").numericValue();
-        appender.writeBytes(writeBytes.append((Long) tweetId));
+        Document doc = searcher.doc(scoreDoc.doc, fieldsToReturn);
+
+        Long tweetId = (Long) doc.getField("id").numericValue();
+        writeBytes.append(tweetId);
+        appender.writeBytes(writeBytes);
+        writeBytes.clear();
+
+        Long time = (Long) doc.getField("time").numericValue();
+        writeBytes.append(time);
+        appender.writeBytes(writeBytes);
         writeBytes.clear();
       }
       return scoreDocs.length;
