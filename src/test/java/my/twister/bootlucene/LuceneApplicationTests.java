@@ -18,6 +18,7 @@ public class LuceneApplicationTests {
 
   @Before
   public void setUp() throws Exception {
+    System.setProperty("server.port", "8080");
     luceneServiceTest = new LuceneServiceTest(luceneService);
   }
 

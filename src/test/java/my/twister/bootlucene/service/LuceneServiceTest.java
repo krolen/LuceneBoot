@@ -49,20 +49,22 @@ public class LuceneServiceTest {
 
 
   public void testSearchBig() throws Exception {
-    LongStream.range(0, 10_000).forEach((l) -> {
+    LongStream.range(0, 10).forEach((l) -> {
       try {
         luceneService.index(l, l, "test number " + l);
       } catch (IOException e) {
         e.printStackTrace();
       }
     });
+    luceneService.getIndexWriter().commit();
     System.out.println("Documents written");
     System.out.println("Documents written");
     System.out.println("Documents written");
     Uninterruptibles.sleepUninterruptibly(1, TimeUnit.SECONDS);
-    Query query = luceneService.parse("content:\"test number 2\"");
+
+    Query query = luceneService.parse("\"test number 3\"");
     Stopwatch started = Stopwatch.createStarted();
-    long found = luceneService.searchBig(query, 1, "path");
+    long found = luceneService.searchBig(query, 5, "path");
     long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
     System.out.println("Documents found: " + found);
     System.out.println("Documents written in : " + elapsed);
