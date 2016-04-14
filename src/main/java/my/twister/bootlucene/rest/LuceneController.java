@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.ValidationException;
 import java.io.IOException;
 
 /**
@@ -31,10 +32,28 @@ public class LuceneController implements LogAware {
 
   @RequestMapping(value = "/searchBig", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
   public int searchBig(@RequestParam(value = "q") String query,
+                       @RequestParam(value = "from") Long from,
+                       @RequestParam(value = "to") Long to,
                         @RequestParam(value = "max", required = false) Integer count,
                         @RequestParam(value = "path") String resultQueryPath) throws IOException, QueryNodeException {
+    if(to > System.currentTimeMillis() + 5000) {
+      throw new ValidationException("'to' should be in the past");
+    }
     Query q = luceneService.parse(query);
-    return luceneService.searchBig(q, count == null ? LuceneService.MAX_BIG_DOCS : count, resultQueryPath);
+    return luceneService.searchBig(q, from, to,  count == null ? LuceneService.MAX_BIG_DOCS : count, resultQueryPath);
+  }
+
+  @RequestMapping(value = "/searchBigNoTime", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+  public int searchBigNoTime(@RequestParam(value = "q") String query,
+                       @RequestParam(value = "from") Long from,
+                       @RequestParam(value = "to") Long to,
+                        @RequestParam(value = "max", required = false) Integer count,
+                        @RequestParam(value = "path") String resultQueryPath) throws IOException, QueryNodeException {
+    if(to > System.currentTimeMillis() + 5000) {
+      throw new ValidationException("'to' should be in the past");
+    }
+    Query q = luceneService.parse(query);
+    return luceneService.searchBigNoTime(q, from, to,  count == null ? LuceneService.MAX_BIG_DOCS : count, resultQueryPath);
   }
 
 

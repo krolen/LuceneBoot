@@ -1,5 +1,6 @@
 package my.twister.bootlucene.service;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import my.twister.bootlucene.AppConfig;
@@ -41,7 +42,10 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * @author kkulagin
@@ -51,6 +55,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LuceneService implements LogAware {
 
   public static final int MAX_BIG_DOCS = 5_000_000;
+//  private static ThreadLocal<LongField> tweetIds = ThreadLocal.withInitial(() -> new LongField("id", 0L, Field.Store.YES));
+//  private static ThreadLocal<LongField> tweetTimes = ThreadLocal.withInitial(() -> new LongField("id", 0L, Field.Store.YES));
+//  private static ThreadLocal<TextField> tweetContents = ThreadLocal.withInitial(() -> new TextField("content", "", Field.Store.NO));
 
   @Autowired
   private AppConfig appConfig;
@@ -70,9 +77,9 @@ public class LuceneService implements LogAware {
   }
 
   public void index(long id, long time, String content) throws IOException {
-//    if (time < from || time > to) {
-//      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
-//    } else {
+    if (time < from || time > to) {
+      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
+    } else {
       Document doc = new Document();
     // TODO: 4/12/2016 reuse long field object
       doc.add(new LongField("id", id, Field.Store.YES));
@@ -86,7 +93,7 @@ public class LuceneService implements LogAware {
       if (indexed.get() % 100000 == 0) {
         indexWriter.commit();
       }
-//    }
+    }
   }
 
   public TopDocs search(Query query, Integer hitsCountToReturn) throws IOException {
@@ -106,37 +113,73 @@ public class LuceneService implements LogAware {
     }
   }
 
-  public int searchBig(Query query, int hitsCountToReturn, String resultQueryPath) throws IOException {
+  public int searchBig(Query query, Long from, Long to, int hitsCountToReturn, String resultQueryPath) throws IOException {
     hitsCountToReturn = Math.min(hitsCountToReturn, MAX_BIG_DOCS);
-    final Set<String> fieldsToReturn = ImmutableSet.of("id", "time");
     ChronicleQueue queue = null;
-    IndexSearcher searcher = null;
     try {
       queue = queueDataService.createQueue(resultQueryPath);
       final VanillaBytes<Void> writeBytes = Bytes.allocateDirect(Long.BYTES * 2);
       final ExcerptAppender appender = queue.createAppender();
 
-      searcher = searcherManager.acquire();
-      TopDocs docs = searcher.search(query, hitsCountToReturn);
-      long totalHits = docs.totalHits;
-      ScoreDoc[] scoreDocs = docs.scoreDocs;
-      for (ScoreDoc scoreDoc : scoreDocs) {
-        Document doc = searcher.doc(scoreDoc.doc, fieldsToReturn);
-
-        Long tweetId = (Long) doc.getField("id").numericValue();
+      return searchInternal(query, from, to, hitsCountToReturn, (tweetId, time) -> {
         writeBytes.append(tweetId);
         appender.writeBytes(writeBytes);
         writeBytes.clear();
-
-        Long time = (Long) doc.getField("time").numericValue();
         writeBytes.append(time);
         appender.writeBytes(writeBytes);
         writeBytes.clear();
-        System.out.println("tweetId = " + tweetId + " time = " + time);
+        return null;
+      });
+
+    } finally {
+      Closeable.closeQuietly(queue);
+    }
+  }
+
+  public int searchBigNoTime(Query query, Long from, Long to, int hitsCountToReturn, String resultQueryPath) throws IOException {
+    hitsCountToReturn = Math.min(hitsCountToReturn, MAX_BIG_DOCS);
+    ChronicleQueue queue = null;
+    try {
+      queue = queueDataService.createQueue(resultQueryPath);
+      final VanillaBytes<Void> writeBytes = Bytes.allocateDirect(Long.BYTES * 2);
+      final ExcerptAppender appender = queue.createAppender();
+
+      return searchInternalNoTime(query, from, to, hitsCountToReturn, (tweetId) -> {
+        writeBytes.append(tweetId);
+        appender.writeBytes(writeBytes);
+        writeBytes.clear();
+        return null;
+      });
+
+    } finally {
+      Closeable.closeQuietly(queue);
+    }
+  }
+
+  private int searchInternal(Query query, Long from, Long to, int hitsCountToReturn, BiFunction<Long, Long, Void> f) throws IOException {
+    final Set<String> fieldsToReturn = ImmutableSet.of("id", "time");
+    IndexSearcher searcher = null;
+    try {
+      Query queryRange = NumericRangeQuery.newLongRange("time", from, to, true, true);
+      BooleanQuery booleanQuery = new BooleanQuery.Builder()
+          .add(query, BooleanClause.Occur.MUST)
+          .add(queryRange, BooleanClause.Occur.MUST)
+          .build();
+      searcher = searcherManager.acquire();
+      Stopwatch stopwatch = Stopwatch.createStarted();
+      TopDocs docs = searcher.search(booleanQuery, hitsCountToReturn);
+      ScoreDoc[] scoreDocs = docs.scoreDocs;
+      log().info("Search took: " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " found " + scoreDocs.length + " documents");
+      stopwatch.reset().start();
+      for (ScoreDoc scoreDoc : scoreDocs) {
+        Document doc = searcher.doc(scoreDoc.doc, fieldsToReturn);
+        Long tweetId = (Long) doc.getField("id").numericValue();
+        Long time = (Long) doc.getField("time").numericValue();
+        f.apply(tweetId, time);
       }
+      log().info("Writing took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
       return scoreDocs.length;
     } finally {
-      Optional.ofNullable(queue).ifPresent(Closeable::closeQuietly);
       Optional.ofNullable(searcher).ifPresent((reference) -> {
         try {
           searcherManager.release(reference);
@@ -145,6 +188,40 @@ public class LuceneService implements LogAware {
       });
     }
   }
+
+
+  private int searchInternalNoTime(Query query, Long from, Long to, int hitsCountToReturn, Function<Long, Void> f) throws IOException {
+    final Set<String> fieldsToReturn = ImmutableSet.of("id", "time");
+    IndexSearcher searcher = null;
+    try {
+      Query queryRange = NumericRangeQuery.newLongRange("time", from, to, true, true);
+      BooleanQuery booleanQuery = new BooleanQuery.Builder()
+          .add(query, BooleanClause.Occur.MUST)
+          .add(queryRange, BooleanClause.Occur.MUST)
+          .build();
+      searcher = searcherManager.acquire();
+      Stopwatch stopwatch = Stopwatch.createStarted();
+      TopDocs docs = searcher.search(booleanQuery, hitsCountToReturn);
+      ScoreDoc[] scoreDocs = docs.scoreDocs;
+      log().info("Search took: " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " found " + scoreDocs.length + " documents");
+      stopwatch.reset().start();
+      for (ScoreDoc scoreDoc : scoreDocs) {
+        Document doc = searcher.doc(scoreDoc.doc, fieldsToReturn);
+        Long tweetId = (Long) doc.getField("id").numericValue();
+        f.apply(tweetId);
+      }
+      log().info("Writing took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
+      return scoreDocs.length;
+    } finally {
+      Optional.ofNullable(searcher).ifPresent((reference) -> {
+        try {
+          searcherManager.release(reference);
+        } catch (IOException ignored) {
+        }
+      });
+    }
+  }
+
 
   public Query parse(String query) throws QueryNodeException {
     return (Query) parser().parse(query, "content");
@@ -155,34 +232,34 @@ public class LuceneService implements LogAware {
   }
 
   private Path createPath(long time) {
-      LocalDateTime timeFrom = Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toLocalDateTime();
-      return Paths.get(appConfig.getLucene().getIndexFilePath()).
-          resolve(String.valueOf(appConfig.getThisAppNumber())).
-          resolve(timeFrom.format(new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
+    LocalDateTime timeFrom = Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toLocalDateTime();
+    return Paths.get(appConfig.getLucene().getIndexFilePath()).
+        resolve(String.valueOf(appConfig.getThisAppNumber())).
+        resolve(timeFrom.format(new DateTimeFormatterBuilder().appendPattern("YY-MM-dd-HH-mm").toFormatter()));
   }
 
   @SneakyThrows
   synchronized void reset() {
     log().info("Cleaning up resources, amount of docs to clear: " + indexed.get());
 //    if (indexed.getAndSet(0) > 0) {
+    try {
+      indexWriter.commit();
+      indexWriter.close();
+      nrtReopenThread.close();
+      searcherManager.close();
+      System.gc();
+    } catch (Exception e) {
+      log().error("Error cleaning up resources", e);
+    } finally {
       try {
-        indexWriter.commit();
-        indexWriter.close();
-        nrtReopenThread.close();
-        searcherManager.close();
-        System.gc();
-      } catch (Exception e) {
-        log().error("Error cleaning up resources", e);
-      } finally {
-        try {
-          FileSystemUtils.deleteRecursively(path.toFile());
-        } catch (Exception ignored) {
-          log().warn("Error deleting directory", ignored);
-        }
-        indexed.set(0);
+        FileSystemUtils.deleteRecursively(path.toFile());
+      } catch (Exception ignored) {
+        log().warn("Error deleting directory", ignored);
       }
-      log().info("Re-initializing");
-      init(Instant.now());
+      indexed.set(0);
+    }
+    log().info("Re-initializing");
+    init(Instant.now());
 //    } else {
 //      log().info("Nothing to clean");
 //    }
@@ -228,7 +305,7 @@ public class LuceneService implements LogAware {
     LocalDateTime dateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
     LocalDateTime nextHourStart = dateTime.plus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.HOURS);
     int closestUpperHour = nextHourStart.getHour();
-    if(closestUpperHour % appsNumber == thisAppNumber) {
+    if (closestUpperHour % appsNumber == thisAppNumber) {
       return Utils.toMillis(nextHourStart);
     } else if ((closestUpperHour - 1) % appsNumber == thisAppNumber) {
       return Utils.toMillis(nextHourStart.minusHours(1));

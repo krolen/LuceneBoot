@@ -2,11 +2,10 @@ package my.twister.bootlucene.service;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Uninterruptibles;
+import my.twister.utils.Utils;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -64,7 +63,7 @@ public class LuceneServiceTest {
 
     Query query = luceneService.parse("\"test number 3\"");
     Stopwatch started = Stopwatch.createStarted();
-    long found = luceneService.searchBig(query, 5, "path");
+    long found = luceneService.searchBig(query, System.currentTimeMillis() - Utils.MILLIS_PER_HOUR, System.currentTimeMillis(), 5, "path");
     long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
     System.out.println("Documents found: " + found);
     System.out.println("Documents written in : " + elapsed);
