@@ -2,6 +2,8 @@ package my.twister.bootlucene.service;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import lombok.SneakyThrows;
 import my.twister.bootlucene.AppConfig;
 import my.twister.bootlucene.map.LowercaseWhitespaceSacIndexAnalyzer;
@@ -33,6 +35,7 @@ import org.springframework.util.FileSystemUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -46,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 /**
  * @author kkulagin
@@ -190,7 +194,7 @@ public class LuceneService implements LogAware {
   }
 
 
-  private int searchInternalNoTime(Query query, Long from, Long to, int hitsCountToReturn, Function<Long, Void> f) throws IOException {
+  public int searchInternalNoTime(Query query, Long from, Long to, int hitsCountToReturn, LongFunction<Void> f) throws IOException {
     final Set<String> fieldsToReturn = ImmutableSet.of("id", "time");
     IndexSearcher searcher = null;
     try {

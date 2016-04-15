@@ -24,6 +24,7 @@ public class MyHandler extends TextWebSocketHandler {
   public void handleTextMessage(WebSocketSession session, TextMessage message) throws IOException {
     String payload = message.getPayload();
     Iterator<String> strings = SPLITTER.split(payload).iterator();
+    // TODO: 4/15/2016 store id as bytes?
     long tweetId = Long.parseLong(strings.next());
     long time = Long.parseLong(strings.next());
     String content = strings.next();
