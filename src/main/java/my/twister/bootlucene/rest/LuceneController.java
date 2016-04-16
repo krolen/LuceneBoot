@@ -74,9 +74,13 @@ public class LuceneController implements LogAware {
     Query q = luceneService.parse(query);
     final Integer finalCount = Optional.ofNullable(count).map(i -> Math.min(i, LuceneService.MAX_BIG_DOCS)).orElse(LuceneService.MAX_BIG_DOCS);
     return outputStream -> {
+      final int[] sent = {0};
       luceneService.searchInternalNoTimeBytes(q, from, to, finalCount, tweetId -> {
         try {
           outputStream.write(tweetId);
+          if (sent[0]++ % 10_000 == 0) {
+            outputStream.flush();
+          }
         } catch (IOException e) {
           log().error("Error streaming data", e);
         }
