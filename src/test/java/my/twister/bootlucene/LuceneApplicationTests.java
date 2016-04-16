@@ -42,4 +42,9 @@ public class LuceneApplicationTests {
     luceneServiceTest.testSearchBig();
   }
 
+  @Test
+  public void searchBigNoTime() throws Exception {
+    luceneServiceTest.testSearchBigNoTime();
+  }
+
 }

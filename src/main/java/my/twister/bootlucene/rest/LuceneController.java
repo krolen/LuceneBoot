@@ -15,6 +15,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import javax.validation.ValidationException;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author kkulagin
@@ -33,32 +34,6 @@ public class LuceneController implements LogAware {
     return luceneService.search(q, count);
   }
 
-  @RequestMapping(value = "/searchBig", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-  public int searchBig(@RequestParam(value = "q") String query,
-                       @RequestParam(value = "from") Long from,
-                       @RequestParam(value = "to") Long to,
-                       @RequestParam(value = "max", required = false) Integer count,
-                       @RequestParam(value = "path") String resultQueryPath) throws IOException, QueryNodeException {
-    if (to > System.currentTimeMillis() + 5000) {
-      throw new ValidationException("'to' should be in the past");
-    }
-    Query q = luceneService.parse(query);
-    return luceneService.searchBig(q, from, to, count == null ? LuceneService.MAX_BIG_DOCS : count, resultQueryPath);
-  }
-
-  @RequestMapping(value = "/searchBigNoTime", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-  public int searchBigNoTime(@RequestParam(value = "q") String query,
-                             @RequestParam(value = "from") Long from,
-                             @RequestParam(value = "to") Long to,
-                             @RequestParam(value = "max", required = false) Integer count,
-                             @RequestParam(value = "path") String resultQueryPath) throws IOException, QueryNodeException {
-    if (to > System.currentTimeMillis() + 5000) {
-      throw new ValidationException("'to' should be in the past");
-    }
-    Query q = luceneService.parse(query);
-    return luceneService.searchBigNoTime(q, from, to, count == null ? LuceneService.MAX_BIG_DOCS : count, resultQueryPath);
-  }
-
   @RequestMapping(value = "/searchBigNoTimeStream", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
   public StreamingResponseBody searchBigNoTime(@RequestParam(value = "q") String query,
                                                @RequestParam(value = "from") Long from,
@@ -70,10 +45,38 @@ public class LuceneController implements LogAware {
 
     Query q = luceneService.parse(query);
     final Integer finalCount = Optional.ofNullable(count).map(i -> Math.min(i, LuceneService.MAX_BIG_DOCS)).orElse(LuceneService.MAX_BIG_DOCS);
+    ReentrantLock lock = new ReentrantLock();
     return outputStream -> {
       luceneService.searchInternalNoTime(q, from, to, finalCount, tweetId -> {
         try {
+          lock.lock();
           outputStream.write(Longs.toByteArray(tweetId));
+        } catch (IOException e) {
+          log().error("Error streaming data", e);
+        } finally {
+          lock.unlock();
+        }
+        return null;
+      });
+      outputStream.flush();
+    };
+  }
+
+  @RequestMapping(value = "/searchBigNoTimeStreamBytes", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+  public StreamingResponseBody searchBigNoTimeBytes(@RequestParam(value = "q") String query,
+                                                    @RequestParam(value = "from") Long from,
+                                                    @RequestParam(value = "to") Long to,
+                                                    @RequestParam(value = "max", required = false) Integer count) throws IOException, QueryNodeException {
+    if (to > System.currentTimeMillis() + 5000) {
+      throw new ValidationException("'to' should be in the past");
+    }
+
+    Query q = luceneService.parse(query);
+    final Integer finalCount = Optional.ofNullable(count).map(i -> Math.min(i, LuceneService.MAX_BIG_DOCS)).orElse(LuceneService.MAX_BIG_DOCS);
+    return outputStream -> {
+      luceneService.searchInternalNoTimeBytes(q, from, to, finalCount, tweetId -> {
+        try {
+          outputStream.write(tweetId);
         } catch (IOException e) {
           log().error("Error streaming data", e);
         }
@@ -88,7 +91,7 @@ public class LuceneController implements LogAware {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void put(@PathVariable("tweetId") long tweetId, @PathVariable("time") Integer time, @RequestBody String body) {
     try {
-      luceneService.index(tweetId, time, body);
+      luceneService.index(Longs.toByteArray(tweetId), time, body);
     } catch (IOException e) {
       log().error("Error indexing tweet " + tweetId, e);
       e.printStackTrace();

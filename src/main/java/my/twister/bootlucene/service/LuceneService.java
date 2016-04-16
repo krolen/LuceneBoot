@@ -17,10 +17,7 @@ import net.openhft.chronicle.core.io.Closeable;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.LongField;
-import org.apache.lucene.document.TextField;
+import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.TrackingIndexWriter;
@@ -43,6 +40,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -59,9 +57,6 @@ import java.util.function.LongFunction;
 public class LuceneService implements LogAware {
 
   public static final int MAX_BIG_DOCS = 5_000_000;
-//  private static ThreadLocal<LongField> tweetIds = ThreadLocal.withInitial(() -> new LongField("id", 0L, Field.Store.YES));
-//  private static ThreadLocal<LongField> tweetTimes = ThreadLocal.withInitial(() -> new LongField("id", 0L, Field.Store.YES));
-//  private static ThreadLocal<TextField> tweetContents = ThreadLocal.withInitial(() -> new TextField("content", "", Field.Store.NO));
 
   @Autowired
   private AppConfig appConfig;
@@ -80,23 +75,17 @@ public class LuceneService implements LogAware {
     init(Instant.now());
   }
 
-  public void index(long id, long time, String content) throws IOException {
-    if (time < from || time > to) {
-      log().error("Tweet {} with time {} is not in interval {}-{}. Skipping", id, time, from, to);
-    } else {
-      Document doc = new Document();
-    // TODO: 4/12/2016 reuse long field object
-      doc.add(new LongField("id", id, Field.Store.YES));
-      doc.add(new LongField("time", time, Field.Store.YES));
-//      doc.add(new TextField("content", content, Field.Store.YES));
-      doc.add(new TextField("content", content, Field.Store.NO));
-      indexWriter.addDocument(doc);
-      if (indexed.incrementAndGet() % 10000 == 0) {
-        searcherManager.maybeRefresh();
-      }
-      if (indexed.get() % 100000 == 0) {
-        indexWriter.commit();
-      }
+  public void index(byte[] id, long time, String content) throws IOException {
+    Document doc = new Document();
+    doc.add(new StoredField("id", id));
+    doc.add(new LongField("time", time, Field.Store.NO));
+    doc.add(new TextField("content", content, Field.Store.NO));
+    indexWriter.addDocument(doc);
+    if (indexed.incrementAndGet() % 10000 == 0) {
+      searcherManager.maybeRefresh();
+    }
+    if (indexed.get() % 100000 == 0) {
+      indexWriter.commit();
     }
   }
 
@@ -117,51 +106,8 @@ public class LuceneService implements LogAware {
     }
   }
 
-  public int searchBig(Query query, Long from, Long to, int hitsCountToReturn, String resultQueryPath) throws IOException {
-    hitsCountToReturn = Math.min(hitsCountToReturn, MAX_BIG_DOCS);
-    ChronicleQueue queue = null;
-    try {
-      queue = queueDataService.createQueue(resultQueryPath);
-      final VanillaBytes<Void> writeBytes = Bytes.allocateDirect(Long.BYTES * 2);
-      final ExcerptAppender appender = queue.createAppender();
-
-      return searchInternal(query, from, to, hitsCountToReturn, (tweetId, time) -> {
-        writeBytes.append(tweetId);
-        appender.writeBytes(writeBytes);
-        writeBytes.clear();
-        writeBytes.append(time);
-        appender.writeBytes(writeBytes);
-        writeBytes.clear();
-        return null;
-      });
-
-    } finally {
-      Closeable.closeQuietly(queue);
-    }
-  }
-
-  public int searchBigNoTime(Query query, Long from, Long to, int hitsCountToReturn, String resultQueryPath) throws IOException {
-    hitsCountToReturn = Math.min(hitsCountToReturn, MAX_BIG_DOCS);
-    ChronicleQueue queue = null;
-    try {
-      queue = queueDataService.createQueue(resultQueryPath);
-      final VanillaBytes<Void> writeBytes = Bytes.allocateDirect(Long.BYTES * 2);
-      final ExcerptAppender appender = queue.createAppender();
-
-      return searchInternalNoTime(query, from, to, hitsCountToReturn, (tweetId) -> {
-        writeBytes.append(tweetId);
-        appender.writeBytes(writeBytes);
-        writeBytes.clear();
-        return null;
-      });
-
-    } finally {
-      Closeable.closeQuietly(queue);
-    }
-  }
-
-  private int searchInternal(Query query, Long from, Long to, int hitsCountToReturn, BiFunction<Long, Long, Void> f) throws IOException {
-    final Set<String> fieldsToReturn = ImmutableSet.of("id", "time");
+  public int searchInternalNoTime(Query query, Long from, Long to, int hitsCountToReturn, LongFunction<Void> f) throws IOException {
+    final Set<String> fieldsToReturn = ImmutableSet.of("id");
     IndexSearcher searcher = null;
     try {
       Query queryRange = NumericRangeQuery.newLongRange("time", from, to, true, true);
@@ -175,12 +121,18 @@ public class LuceneService implements LogAware {
       ScoreDoc[] scoreDocs = docs.scoreDocs;
       log().info("Search took: " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " found " + scoreDocs.length + " documents");
       stopwatch.reset().start();
-      for (ScoreDoc scoreDoc : scoreDocs) {
-        Document doc = searcher.doc(scoreDoc.doc, fieldsToReturn);
-        Long tweetId = (Long) doc.getField("id").numericValue();
-        Long time = (Long) doc.getField("time").numericValue();
-        f.apply(tweetId, time);
-      }
+
+      final IndexSearcher finalSearcher = searcher;
+      Arrays.stream(scoreDocs).parallel().forEach(sd -> {
+        Document doc = null;
+        try {
+          doc = finalSearcher.doc(sd.doc, fieldsToReturn);
+          Long tweetId = (Long) doc.getField("id").numericValue();
+          f.apply(tweetId);
+        } catch (IOException e) {
+          log().error("Error reading doc from lucine", e);
+        }
+      });
       log().info("Writing took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
       return scoreDocs.length;
     } finally {
@@ -193,9 +145,8 @@ public class LuceneService implements LogAware {
     }
   }
 
-
-  public int searchInternalNoTime(Query query, Long from, Long to, int hitsCountToReturn, LongFunction<Void> f) throws IOException {
-    final Set<String> fieldsToReturn = ImmutableSet.of("id", "time");
+  public int searchInternalNoTimeBytes(Query query, Long from, Long to, int hitsCountToReturn, Function<byte[], Void> f) throws IOException {
+    final Set<String> fieldsToReturn = ImmutableSet.of("id");
     IndexSearcher searcher = null;
     try {
       Query queryRange = NumericRangeQuery.newLongRange("time", from, to, true, true);
@@ -209,10 +160,9 @@ public class LuceneService implements LogAware {
       ScoreDoc[] scoreDocs = docs.scoreDocs;
       log().info("Search took: " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " found " + scoreDocs.length + " documents");
       stopwatch.reset().start();
-      for (ScoreDoc scoreDoc : scoreDocs) {
-        Document doc = searcher.doc(scoreDoc.doc, fieldsToReturn);
-        Long tweetId = (Long) doc.getField("id").numericValue();
-        f.apply(tweetId);
+      for (ScoreDoc sd : scoreDocs) {
+        Document doc = searcher.doc(sd.doc, fieldsToReturn);
+        f.apply(doc.getField("id").binaryValue().bytes);
       }
       log().info("Writing took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
       return scoreDocs.length;

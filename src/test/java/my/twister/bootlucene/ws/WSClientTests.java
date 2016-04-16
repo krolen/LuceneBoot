@@ -1,5 +1,6 @@
 package my.twister.bootlucene.ws;
 
+import com.google.common.primitives.Longs;
 import org.eclipse.jetty.websocket.api.*;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
@@ -37,7 +38,7 @@ public class WSClientTests {
 
   @Test
   public void testText() throws Exception {
-    setUp("ws://localhost:8080/textSaveTweet");
+    setUp("ws://localhost:8891/textSaveTweet");
 
     Session session = socket.getSession();
     RemoteEndpoint remote = session.getRemote();
@@ -51,6 +52,22 @@ public class WSClientTests {
     System.out.println(System.nanoTime() - l);
   }
 
+  @Test
+  public void testText2() throws Exception {
+    setUp("ws://localhost:8881/textSaveTweet2");
+
+    Session session = socket.getSession();
+    RemoteEndpoint remote = session.getRemote();
+//    ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
+
+    long l = System.nanoTime();
+    for (long i = 5; i < 106; i++) {
+      String msg = "this is my super mega text" + i;
+      remote.sendString(i + "|" + i + "|" + msg);
+    }
+    System.out.println(System.nanoTime() - l);
+  }
+
   @Test // TODO: 3/30/2016 Surprise - this one works slower....
   public void testBinary() throws Exception {
     setUp("ws://localhost:8080/bytesSaveTweet");
@@ -58,7 +75,6 @@ public class WSClientTests {
     Session session = socket.getSession();
     RemoteEndpoint remote = session.getRemote();
     ByteBuffer buffer = ByteBuffer.allocate(10 * 1024);
-//    remote.setBatchMode(BatchMode.OFF);
     long l = System.nanoTime();
     for (int i = 5; i < 106; i++) {
       String msg = "this is " + i;

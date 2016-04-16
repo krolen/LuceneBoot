@@ -1,11 +1,13 @@
 package my.twister.bootlucene.service;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.Uninterruptibles;
 import my.twister.utils.Utils;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.junit.After;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -67,5 +69,33 @@ public class LuceneServiceTest {
     long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
     System.out.println("Documents found: " + found);
     System.out.println("Documents written in : " + elapsed);
+  }
+
+  public void testSearchBigNoTime() throws Exception {
+    LongStream.range(0, 1_000_000).forEach((l) -> {
+      try {
+        luceneService.index(Longs.toByteArray(l), System.currentTimeMillis() - 5000, "test number " + l);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    });
+    luceneService.getIndexWriter().commit();
+    System.out.println("Documents written");
+    System.out.println("Documents written");
+    System.out.println("Documents written");
+    Uninterruptibles.sleepUninterruptibly(1, TimeUnit.SECONDS);
+
+    Query query = luceneService.parse("*:*");
+    Stopwatch started = Stopwatch.createStarted();
+    long found = luceneService.searchInternalNoTimeBytes(query, System.currentTimeMillis() - Utils.MILLIS_PER_HOUR,
+        System.currentTimeMillis(), 1_000_000, (l) -> {
+          long value = Longs.fromByteArray(l);
+          if(value % 1000 == 0) {
+            System.out.println("value = " + value);
+          }
+          return null;
+        });
+    System.out.println("search done in " + started.elapsed(TimeUnit.MILLISECONDS));
+    System.out.println("Documents found: " + found);
   }
 }
