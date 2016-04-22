@@ -4,6 +4,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
+import com.sun.media.sound.ModelStandardDirector;
 import lombok.SneakyThrows;
 import my.twister.bootlucene.AppConfig;
 import my.twister.bootlucene.map.LowercaseWhitespaceSacIndexAnalyzer;
@@ -18,6 +19,7 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.*;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.TrackingIndexWriter;
@@ -124,9 +126,8 @@ public class LuceneService implements LogAware {
 
       final IndexSearcher finalSearcher = searcher;
       Arrays.stream(scoreDocs).parallel().forEach(sd -> {
-        Document doc = null;
         try {
-          doc = finalSearcher.doc(sd.doc, fieldsToReturn);
+          Document doc = finalSearcher.doc(sd.doc, fieldsToReturn);
           Long tweetId = (Long) doc.getField("id").numericValue();
           f.apply(tweetId);
         } catch (IOException e) {
@@ -159,12 +160,34 @@ public class LuceneService implements LogAware {
       TopDocs docs = searcher.search(booleanQuery, hitsCountToReturn);
       ScoreDoc[] scoreDocs = docs.scoreDocs;
       log().info("Search took: " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " found " + scoreDocs.length + " documents");
+
       stopwatch.reset().start();
-      for (ScoreDoc sd : scoreDocs) {
-        Document doc = searcher.doc(sd.doc, fieldsToReturn);
-        f.apply(doc.getField("id").binaryValue().bytes);
-      }
-      log().info("Writing took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
+
+//      long[] res = new long[scoreDocs.length];
+      AtomicInteger i = new AtomicInteger(-1);
+      final IndexSearcher finalSearcher = searcher;
+      Arrays.stream(scoreDocs).parallel().forEach(sd -> {
+        try {
+          Document doc = finalSearcher.doc(sd.doc, fieldsToReturn);
+          f.apply(doc.getField("id").binaryValue().bytes);
+        } catch (IOException e) {
+          log().error("cannot get doc", e);
+        }
+//        res[i.incrementAndGet()] = Longs.fromByteArray(doc.getField("id").binaryValue().bytes);
+      });
+//      for (ScoreDoc sd : scoreDocs) {
+//        Document doc = searcher.doc(sd.doc, fieldsToReturn);
+//        res[i.incrementAndGet()] = Longs.fromByteArray(doc.getField("id").binaryValue().bytes);
+////        f.apply(doc.getField("id").binaryValue().bytes);
+//      }
+//      log().info("Reading ids took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
+
+//      stopwatch.reset().start();
+//      for (long re : res) {
+//        f.apply(Longs.toByteArray(re));
+//      }
+      log().info("Writing ids took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
+
       return scoreDocs.length;
     } finally {
       Optional.ofNullable(searcher).ifPresent((reference) -> {
@@ -230,6 +253,7 @@ public class LuceneService implements LogAware {
     path = createPath(from);
     // TODO: 07.02.2016 offheap
     MMapDirectory index = new MMapDirectory(path);
+
 
     IndexWriterConfig config = new IndexWriterConfig(analyzer());
     indexWriter = new IndexWriter(index, config);

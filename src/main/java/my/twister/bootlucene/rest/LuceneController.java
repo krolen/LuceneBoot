@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import javax.validation.ValidationException;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
@@ -74,19 +75,16 @@ public class LuceneController implements LogAware {
     Query q = luceneService.parse(query);
     final Integer finalCount = Optional.ofNullable(count).map(i -> Math.min(i, LuceneService.MAX_BIG_DOCS)).orElse(LuceneService.MAX_BIG_DOCS);
     return outputStream -> {
-      final int[] sent = {0};
+      BufferedOutputStream stream = new BufferedOutputStream(outputStream, Long.BYTES * 1_000_000);
       luceneService.searchInternalNoTimeBytes(q, from, to, finalCount, tweetId -> {
         try {
-          outputStream.write(tweetId);
-          if (sent[0]++ % 10_000 == 0) {
-            outputStream.flush();
-          }
+          stream.write(tweetId);
         } catch (IOException e) {
           log().error("Error streaming data", e);
         }
         return null;
       });
-      outputStream.flush();
+      stream.flush();
     };
   }
 

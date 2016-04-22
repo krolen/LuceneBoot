@@ -38,11 +38,6 @@ public class LuceneApplicationTests {
   }
 
   @Test
-  public void searchBig() throws Exception {
-    luceneServiceTest.testSearchBig();
-  }
-
-  @Test
   public void searchBigNoTime() throws Exception {
     luceneServiceTest.testSearchBigNoTime();
   }

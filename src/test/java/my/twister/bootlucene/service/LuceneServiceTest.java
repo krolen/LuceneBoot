@@ -26,9 +26,9 @@ public class LuceneServiceTest {
   }
 
   public void index() throws Exception {
-    luceneService.index(1L, 100L, "test number 1");
-    luceneService.index(2L, 100L, "test number 2");
-    luceneService.index(3L, 100L, "test number 3");
+    luceneService.index(Longs.toByteArray(1L), 100L, "test number 1");
+    luceneService.index(Longs.toByteArray(2L), 100L, "test number 2");
+    luceneService.index(Longs.toByteArray(3L), 100L, "test number 3");
   }
 
   @After
@@ -48,28 +48,6 @@ public class LuceneServiceTest {
     TopDocs docs = luceneService.search(query, 1);
   }
 
-
-  public void testSearchBig() throws Exception {
-    LongStream.range(0, 10).forEach((l) -> {
-      try {
-        luceneService.index(l, l, "test number " + l);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-    });
-    luceneService.getIndexWriter().commit();
-    System.out.println("Documents written");
-    System.out.println("Documents written");
-    System.out.println("Documents written");
-    Uninterruptibles.sleepUninterruptibly(1, TimeUnit.SECONDS);
-
-    Query query = luceneService.parse("\"test number 3\"");
-    Stopwatch started = Stopwatch.createStarted();
-    long found = luceneService.searchBig(query, System.currentTimeMillis() - Utils.MILLIS_PER_HOUR, System.currentTimeMillis(), 5, "path");
-    long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
-    System.out.println("Documents found: " + found);
-    System.out.println("Documents written in : " + elapsed);
-  }
 
   public void testSearchBigNoTime() throws Exception {
     LongStream.range(0, 1_000_000).forEach((l) -> {
