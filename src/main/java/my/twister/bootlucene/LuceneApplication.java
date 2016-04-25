@@ -19,10 +19,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class LuceneApplication {
 
   @Bean
-  public JettyEmbeddedServletContainerFactory jettyEmbeddedServletContainerFactory(@Value("${jetty.threadPool.maxThreads:50}") final String maxThreads,
+  public JettyEmbeddedServletContainerFactory jettyEmbeddedServletContainerFactory(@Value("${jetty.threadPool.maxThreads:100}") final String maxThreads,
                                                                                    @Value("${jetty.threadPool.minThreads:10}") final String minThreads,
                                                                                    @Value("${jetty.threadPool.idleTimeout:60000}") final String idleTimeout) {
-    Integer port = Integer.valueOf(System.getProperty("server.port","8080"));
+    Integer port = Integer.valueOf(System.getProperty("server.port","8880"));
     final JettyEmbeddedServletContainerFactory factory = new JettyEmbeddedServletContainerFactory(port);
     factory.addServerCustomizers(new JettyServerCustomizer() {
       @Override

@@ -1,7 +1,7 @@
 app:
   lucene:
     refreshIndexMin: 10
-    indexFilePath: "/data/lucene"
+    indexFilePath: "/dev/shm/lucene"
     hitsToReturn: 100
 
   thisAppNumber: ${thisAppNumber}

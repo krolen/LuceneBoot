@@ -163,29 +163,24 @@ public class LuceneService implements LogAware {
 
       stopwatch.reset().start();
 
-//      long[] res = new long[scoreDocs.length];
-      AtomicInteger i = new AtomicInteger(-1);
-      final IndexSearcher finalSearcher = searcher;
-      Arrays.stream(scoreDocs).parallel().forEach(sd -> {
-        try {
-          Document doc = finalSearcher.doc(sd.doc, fieldsToReturn);
+      if (scoreDocs.length > 50_000) {
+        // do it normally with normal pool
+        final IndexSearcher finalSearcher = searcher;
+        Arrays.stream(scoreDocs).parallel().forEach(sd -> {
+          try {
+            Document doc = finalSearcher.doc(sd.doc, fieldsToReturn);
+            f.apply(doc.getField("id").binaryValue().bytes);
+          } catch (IOException e) {
+            log().error("cannot get doc", e);
+          }
+        });
+      } else {
+        for (ScoreDoc sd : scoreDocs) {
+          Document doc = searcher.doc(sd.doc, fieldsToReturn);
           f.apply(doc.getField("id").binaryValue().bytes);
-        } catch (IOException e) {
-          log().error("cannot get doc", e);
         }
-//        res[i.incrementAndGet()] = Longs.fromByteArray(doc.getField("id").binaryValue().bytes);
-      });
-//      for (ScoreDoc sd : scoreDocs) {
-//        Document doc = searcher.doc(sd.doc, fieldsToReturn);
-//        res[i.incrementAndGet()] = Longs.fromByteArray(doc.getField("id").binaryValue().bytes);
-////        f.apply(doc.getField("id").binaryValue().bytes);
-//      }
-//      log().info("Reading ids took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
+      }
 
-//      stopwatch.reset().start();
-//      for (long re : res) {
-//        f.apply(Longs.toByteArray(re));
-//      }
       log().info("Writing ids took " + stopwatch.elapsed(TimeUnit.MILLISECONDS));
 
       return scoreDocs.length;
